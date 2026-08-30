@@ -1,0 +1,40 @@
+name: Build Toolbox
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+        working-directory: ./toolbox
+      - run: npm run tauri:build
+        working-directory: ./toolbox
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toolbox-exe
+          path: toolbox/src-tauri/target/release/bundle/**/*.exe
+          # also msi: toolbox/src-tauri/target/release/bundle/msi/*.msi
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: npm ci
+        working-directory: ./toolbox
+      - run: npm run tauri:build
+        working-directory: ./toolbox
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toolbox-linux
+          path: toolbox/src-tauri/target/release/bundle/**/*
