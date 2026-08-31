@@ -1,10 +1,39 @@
-import { extractPlaylistId, fetchPlaylistDetail, fetchSongDetails } from './api.ts';
+import { fetchPlaylistDetail, fetchSongDetails } from './api.ts';
 import { downloadNcmTracks, type NcmTracksDownloadResult } from './download.ts';
 import { loadDownloadedIds, markDownloaded } from './store.ts';
 import type { Track } from './types.ts';
 
 export const pendingTracks = (tracks: Track[], downloaded: Set<number>) =>
   tracks.filter((track) => !downloaded.has(track.id));
+
+export function createLatestRequestGate() {
+  let generation = 0;
+  return {
+    begin: () => {
+      const requestGeneration = ++generation;
+      return () => requestGeneration === generation;
+    },
+    invalidate: () => { generation += 1; },
+  };
+}
+
+export function extractSupportedNcmPlaylistId(shareUrl: string): number | null {
+  try {
+    const url = new URL(shareUrl.trim());
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+    if (url.hostname.toLowerCase() !== 'music.163.com') return null;
+
+    const pathname = url.pathname.replace(/\/+$/, '');
+    if (pathname !== '/playlist' && pathname !== '/m/playlist') return null;
+
+    const rawId = url.searchParams.get('id');
+    if (!rawId || !/^\d+$/.test(rawId)) return null;
+    const id = Number(rawId);
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchSongDetailsBatched(
   ids: number[],
@@ -18,8 +47,8 @@ export async function fetchSongDetailsBatched(
 }
 
 export async function loadNcmDownloadPreview(url: string) {
-  const id = extractPlaylistId(url);
-  if (!id) throw new Error('无法解析歌单链接');
+  const id = extractSupportedNcmPlaylistId(url);
+  if (!id) throw new Error('仅支持网易云音乐歌单分享链接');
   const { info, trackIds } = await fetchPlaylistDetail(id);
   const tracks = await fetchSongDetailsBatched(trackIds.map((track) => track.id));
   return { info, pending: pendingTracks(tracks, loadDownloadedIds()) };
@@ -45,6 +74,7 @@ type ConfirmNcmQuickDownloadOptions = {
 
 export type ConfirmNcmQuickDownloadResult =
   | { status: 'logged-out' }
+  | { status: 'invalid-url' }
   | { status: 'login-expired' }
   | { status: 'no-pending' }
   | { status: 'completed'; result: NcmTracksDownloadResult };
@@ -60,6 +90,7 @@ export async function confirmNcmQuickDownload({
   downloadTracks = downloadNcmTracks,
 }: ConfirmNcmQuickDownloadOptions): Promise<ConfirmNcmQuickDownloadResult> {
   if (!loggedIn) return { status: 'logged-out' };
+  if (!extractSupportedNcmPlaylistId(url)) return { status: 'invalid-url' };
   if (pending.length === 0) return { status: 'no-pending' };
   if (!(await validateLogin())) return { status: 'login-expired' };
 

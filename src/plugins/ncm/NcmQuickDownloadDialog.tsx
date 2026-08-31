@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { NcmTracksDownloadResult } from './download';
 import {
   confirmNcmQuickDownload,
+  createLatestRequestGate,
   loadNcmDownloadPreview,
   previewSummary,
   previewTrackLabels,
@@ -37,8 +38,10 @@ export default function NcmQuickDownloadDialog({
   const [downloading, setDownloading] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [downloadResult, setDownloadResult] = useState<NcmTracksDownloadResult | null>(null);
+  const previewRequestGate = useRef(createLatestRequestGate());
 
   useEffect(() => {
+    previewRequestGate.current.invalidate();
     if (!open) return;
     setUrl(initialUrl);
     setLevel('exhigh');
@@ -53,18 +56,21 @@ export default function NcmQuickDownloadDialog({
 
   const parsePreview = async () => {
     const trimmedUrl = url.trim();
+    const isCurrentRequest = previewRequestGate.current.begin();
     setParsing(true);
     setPreview(null);
     setFeedback('');
     setDownloadResult(null);
     try {
       const nextPreview = await loadNcmDownloadPreview(trimmedUrl);
+      if (!isCurrentRequest()) return;
       setPreview(nextPreview);
       onUrlSaved(trimmedUrl);
     } catch (error) {
+      if (!isCurrentRequest()) return;
       setFeedback(`解析失败：${errorMessage(error)}`);
     } finally {
-      setParsing(false);
+      if (isCurrentRequest()) setParsing(false);
     }
   };
 
@@ -96,6 +102,10 @@ export default function NcmQuickDownloadDialog({
         setFeedback('请先扫码登录后再下载');
         return;
       }
+      if (confirmation.status === 'invalid-url') {
+        setFeedback('仅支持网易云音乐歌单分享链接');
+        return;
+      }
       if (confirmation.status === 'login-expired') {
         setFeedback('登录已失效，请重新登录后再下载');
         return;
@@ -116,6 +126,7 @@ export default function NcmQuickDownloadDialog({
   };
 
   const changeUrl = (nextUrl: string) => {
+    previewRequestGate.current.invalidate();
     setUrl(nextUrl);
     setPreview(null);
     setFeedback('');
@@ -123,7 +134,9 @@ export default function NcmQuickDownloadDialog({
   };
 
   const close = () => {
-    if (!downloading) onClose();
+    if (downloading) return;
+    previewRequestGate.current.invalidate();
+    onClose();
   };
 
   return (

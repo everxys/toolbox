@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { downloadNcmTracks, toDownloadCommandArgs } from './download.ts';
 import {
   confirmNcmQuickDownload,
+  createLatestRequestGate,
+  extractSupportedNcmPlaylistId,
   fetchSongDetailsBatched,
+  loadNcmDownloadPreview,
   pendingTracks,
   previewSummary,
   previewTrackLabels,
@@ -13,6 +16,39 @@ const tracks = [
   { id: 1, name: '已下载', artists: ['甲'], album: '', duration: 0, v: 0 },
   { id: 2, name: '待下载', artists: ['乙'], album: '', duration: 0, v: 0 },
 ];
+assert.equal(
+  extractSupportedNcmPlaylistId('https://music.163.com/m/playlist?id=784204124'),
+  784204124,
+);
+assert.equal(
+  extractSupportedNcmPlaylistId('https://example.com/not-a-playlist?id=42'),
+  null,
+);
+assert.equal(
+  extractSupportedNcmPlaylistId('https://music.163.com/song?id=42'),
+  null,
+);
+await assert.rejects(
+  loadNcmDownloadPreview('https://example.com/not-a-playlist?id=42'),
+  /仅支持网易云音乐歌单分享链接/,
+);
+
+const requestGate = createLatestRequestGate();
+const writes: string[] = [];
+let resolveFirstRequest!: (value: string) => void;
+const firstRequestIsCurrent = requestGate.begin();
+const firstRequest = new Promise<string>((resolve) => {
+  resolveFirstRequest = resolve;
+}).then((value) => {
+  if (firstRequestIsCurrent()) writes.push(value);
+});
+requestGate.invalidate();
+const secondRequestIsCurrent = requestGate.begin();
+if (secondRequestIsCurrent()) writes.push('歌单 B');
+resolveFirstRequest('歌单 A');
+await firstRequest;
+assert.deepEqual(writes, ['歌单 B']);
+
 assert.deepEqual(pendingTracks(tracks, new Set([1])).map((track) => track.id), [2]);
 assert.equal(previewSummary([{ ...tracks[1] }]), '将下载 1 首歌');
 assert.equal(previewSummary([]), '没有待下载歌曲');
@@ -98,6 +134,27 @@ assert.deepEqual(await runConfirmation(false, async () => {
   validated += 1;
   return true;
 }), { status: 'logged-out' });
+assert.equal(validated, 0);
+assert.equal(downloadCalls, 0);
+assert.equal(savedUrl, '');
+
+const invalidUrlResult = await confirmNcmQuickDownload({
+  loggedIn: true,
+  url: 'https://example.com/not-a-playlist?id=2',
+  pending: [tracks[1]],
+  level: 'exhigh',
+  validateLogin: async () => {
+    validated += 1;
+    return true;
+  },
+  onUrlSaved: (url) => { savedUrl = url; },
+  markDownloaded: (id) => { markedIds.push(id); },
+  downloadTracks: async () => {
+    downloadCalls += 1;
+    return { successes: [], failures: [], callbackFailures: [] };
+  },
+});
+assert.deepEqual(invalidUrlResult, { status: 'invalid-url' });
 assert.equal(validated, 0);
 assert.equal(downloadCalls, 0);
 assert.equal(savedUrl, '');
