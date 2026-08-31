@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { isPrimaryToolClick } from './home';
+import { isPrimaryToolClick, runQuickAction } from './home';
 import { toolDefinitions, type ToolDefinition, type ToolId } from './tools';
 
 type QuickActionId = ToolDefinition['quickActions'][number]['id'];
@@ -75,8 +75,10 @@ export default function HomePage({ onOpenTool, onQuickAction }: HomePageProps) {
                 key={action.id}
                 role="menuitem"
                 onClick={() => {
-                  onQuickAction(contextMenu.tool.id, action.id);
-                  setContextMenu(null);
+                  runQuickAction(
+                    () => setContextMenu(null),
+                    () => onQuickAction(contextMenu.tool.id, action.id),
+                  );
                 }}
                 style={{ display: 'block', width: '100%', border: 0, borderRadius: 4, padding: '8px 10px', background: 'transparent', textAlign: 'left', cursor: 'pointer' }}
               >
