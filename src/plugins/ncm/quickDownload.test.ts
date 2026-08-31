@@ -28,6 +28,19 @@ assert.deepEqual(batchResult.failures.map(({ track, error }) => ({ id: track.id,
 ]);
 assert.deepEqual(downloaded, [1]);
 
+const callbackFailureResult = await downloadNcmTracks(
+  [tracks[0]],
+  'exhigh',
+  1,
+  () => { throw new Error('状态写入失败'); },
+  async () => ({ filePath: 'C:/downloads/已下载.mp3' }),
+);
+assert.deepEqual(callbackFailureResult.successes.map(({ track }) => track.id), [1]);
+assert.deepEqual(callbackFailureResult.failures, []);
+assert.deepEqual(callbackFailureResult.callbackFailures.map(({ track, error }) => ({ id: track.id, error })), [
+  { id: 1, error: '状态写入失败' },
+]);
+
 const ids = Array.from({ length: 401 }, (_, index) => index + 1);
 const requested: number[][] = [];
 const songs = await fetchSongDetailsBatched(ids, async (chunk) => {

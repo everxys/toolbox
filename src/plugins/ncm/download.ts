@@ -7,6 +7,7 @@ type DownloadTrack = (track: Track, level: string) => Promise<DownloadResult>;
 export type NcmTracksDownloadResult = {
   successes: Array<{ track: Track; result: DownloadResult }>;
   failures: Array<{ track: Track; error: string }>;
+  callbackFailures: Array<{ track: Track; error: string }>;
 };
 
 export const toDownloadCommandArgs = (track: Track, level: string) => ({
@@ -30,19 +31,30 @@ export async function downloadNcmTracks(
 ): Promise<NcmTracksDownloadResult> {
   const successes: NcmTracksDownloadResult['successes'] = [];
   const failures: NcmTracksDownloadResult['failures'] = [];
+  const callbackFailures: NcmTracksDownloadResult['callbackFailures'] = [];
 
   await pool(tracks, concurrency, async (track) => {
+    let result: DownloadResult;
     try {
-      const result = await downloadTrack(track, level);
-      successes.push({ track, result });
-      onSuccess(track, result);
+      result = await downloadTrack(track, level);
     } catch (error) {
       failures.push({
+        track,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+
+    successes.push({ track, result });
+    try {
+      onSuccess(track, result);
+    } catch (error) {
+      callbackFailures.push({
         track,
         error: error instanceof Error ? error.message : String(error),
       });
     }
   });
 
-  return { successes, failures };
+  return { successes, failures, callbackFailures };
 }
