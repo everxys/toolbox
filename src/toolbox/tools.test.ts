@@ -36,6 +36,16 @@ assert.equal(shouldAdjustToolIcons({ ctrlKey: true, deltaY: -1 }), true);
 assert.equal(shouldAdjustToolIcons({ ctrlKey: false, deltaY: -1 }), false);
 saveToolIconSize(48);
 assert.equal(loadToolIconSize(), 48);
+values.clear();
+assert.equal(loadToolIconSize(), DEFAULT_TOOL_ICON_SIZE);
+values.set('toolbox_tool_icon_size', 'not-a-size');
+assert.equal(loadToolIconSize(), DEFAULT_TOOL_ICON_SIZE);
+values.set('toolbox_tool_icon_size', String(MAX_TOOL_ICON_SIZE + 1));
+assert.equal(loadToolIconSize(), DEFAULT_TOOL_ICON_SIZE);
+saveToolIconSize(MAX_TOOL_ICON_SIZE + 10);
+assert.equal(values.get('toolbox_tool_icon_size'), String(MAX_TOOL_ICON_SIZE));
+saveToolIconSize(MIN_TOOL_ICON_SIZE - 10);
+assert.equal(values.get('toolbox_tool_icon_size'), String(MIN_TOOL_ICON_SIZE));
 
 const events: string[] = [];
 assert.throws(() => runQuickAction(
