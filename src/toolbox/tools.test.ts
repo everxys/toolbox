@@ -1,5 +1,15 @@
 import assert from 'node:assert/strict';
-import { isPrimaryToolClick, runQuickAction } from './home.ts';
+import {
+  adjustToolIconSize,
+  DEFAULT_TOOL_ICON_SIZE,
+  isPrimaryToolClick,
+  loadToolIconSize,
+  MAX_TOOL_ICON_SIZE,
+  MIN_TOOL_ICON_SIZE,
+  runQuickAction,
+  saveToolIconSize,
+  shouldAdjustToolIcons,
+} from './home.ts';
 import { getToolById, loadLastNcmPlaylistUrl, saveLastNcmPlaylistUrl } from './tools.ts';
 
 const values = new Map<string, string>();
@@ -17,6 +27,15 @@ saveLastNcmPlaylistUrl('https://music.163.com/playlist?id=1');
 assert.equal(loadLastNcmPlaylistUrl(), 'https://music.163.com/playlist?id=1');
 assert.equal(isPrimaryToolClick(0), true);
 assert.equal(isPrimaryToolClick(2), false);
+
+assert.equal(adjustToolIconSize(DEFAULT_TOOL_ICON_SIZE, -1), DEFAULT_TOOL_ICON_SIZE + 4);
+assert.equal(adjustToolIconSize(DEFAULT_TOOL_ICON_SIZE, 1), DEFAULT_TOOL_ICON_SIZE - 4);
+assert.equal(adjustToolIconSize(MAX_TOOL_ICON_SIZE, -1), MAX_TOOL_ICON_SIZE);
+assert.equal(adjustToolIconSize(MIN_TOOL_ICON_SIZE, 1), MIN_TOOL_ICON_SIZE);
+assert.equal(shouldAdjustToolIcons({ ctrlKey: true, deltaY: -1 }), true);
+assert.equal(shouldAdjustToolIcons({ ctrlKey: false, deltaY: -1 }), false);
+saveToolIconSize(48);
+assert.equal(loadToolIconSize(), 48);
 
 const events: string[] = [];
 assert.throws(() => runQuickAction(
