@@ -39,6 +39,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Toolbox ${{ github.ref_name }}'
           releaseBody: 'See assets to download and install. Updater will check https://github.com/everxys/toolbox/releases/latest/download/latest.json'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
