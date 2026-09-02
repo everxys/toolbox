@@ -14,7 +14,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            args: ''
+            args: --bundles nsis
           - os: ubuntu-22.04
             args: ''
     runs-on: ${{ matrix.os }}
