@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { qrCreate, qrCheck } from './api';
 
-export default function QRLogin({ onLogin }: { onLogin: (cookie: string) => void }) {
+export default function QRLogin({ onLogin }: { onLogin: (cookie: string) => Promise<void> | void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [unikey, setUnikey] = useState('');
   const [status, setStatus] = useState('加载中...');
@@ -25,9 +25,13 @@ export default function QRLogin({ onLogin }: { onLogin: (cookie: string) => void
       } else if (r.code === 801) setStatus('待扫码');
       else if (r.code === 802) setStatus('待确认');
       else if (r.code === 803) {
-        setStatus('登录成功');
-        window.clearInterval(timerRef.current!);
-        onLogin(r.cookie || '');
+        try {
+          await onLogin(r.cookie || '');
+          setStatus('登录成功');
+          window.clearInterval(timerRef.current!);
+        } catch (error) {
+          setStatus(`登录失败：${String(error)}`);
+        }
       }
     }, 2000) as unknown as number;
   };

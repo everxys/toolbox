@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { DownloadTask } from './types';
 
 export default function DownloadQueue({ tasks, concurrency, onPause, onCancel }:{
@@ -6,12 +7,16 @@ export default function DownloadQueue({ tasks, concurrency, onPause, onCancel }:
   onPause?: () => void;
   onCancel?: () => void;
 }) {
-  const stats = {
-    pending: tasks.filter(t=>t.status==='pending').length,
-    downloading: tasks.filter(t=>t.status==='downloading').length,
-    done: tasks.filter(t=>t.status==='done').length,
-    error: tasks.filter(t=>t.status==='error').length,
-  };
+  const stats = useMemo(() => {
+    let pending = 0, downloading = 0, done = 0, error = 0;
+    for (const task of tasks) {
+      if (task.status === 'pending') pending++;
+      else if (task.status === 'downloading') downloading++;
+      else if (task.status === 'done') done++;
+      else if (task.status === 'error') error++;
+    }
+    return { pending, downloading, done, error };
+  }, [tasks]);
   const progress = tasks.length ? Math.round((stats.done/tasks.length)*100) : 0;
   return (
     <div style={{ border:'1px solid #ddd', borderRadius:8, padding:12, marginTop:12 }}>

@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import {
   adjustToolIconSize,
+  adjustToolCardSize,
   DEFAULT_TOOL_ICON_SIZE,
+  DEFAULT_TOOL_CARD_SIZE,
   isPrimaryToolClick,
   loadToolIconSize,
   MAX_TOOL_ICON_SIZE,
+  MAX_TOOL_CARD_SIZE,
   MIN_TOOL_ICON_SIZE,
+  MIN_TOOL_CARD_SIZE,
   runQuickAction,
   saveToolIconSize,
   shouldAdjustToolIcons,
@@ -32,6 +36,10 @@ assert.equal(adjustToolIconSize(DEFAULT_TOOL_ICON_SIZE, -1), DEFAULT_TOOL_ICON_S
 assert.equal(adjustToolIconSize(DEFAULT_TOOL_ICON_SIZE, 1), DEFAULT_TOOL_ICON_SIZE - 4);
 assert.equal(adjustToolIconSize(MAX_TOOL_ICON_SIZE, -1), MAX_TOOL_ICON_SIZE);
 assert.equal(adjustToolIconSize(MIN_TOOL_ICON_SIZE, 1), MIN_TOOL_ICON_SIZE);
+assert.equal(adjustToolCardSize(DEFAULT_TOOL_CARD_SIZE, -1), DEFAULT_TOOL_CARD_SIZE + 16);
+assert.equal(adjustToolCardSize(DEFAULT_TOOL_CARD_SIZE, 1), DEFAULT_TOOL_CARD_SIZE - 16);
+assert.equal(adjustToolCardSize(MAX_TOOL_CARD_SIZE, -1), MAX_TOOL_CARD_SIZE);
+assert.equal(adjustToolCardSize(MIN_TOOL_CARD_SIZE, 1), MIN_TOOL_CARD_SIZE);
 assert.equal(shouldAdjustToolIcons({ ctrlKey: true, deltaY: -1 }), true);
 assert.equal(shouldAdjustToolIcons({ ctrlKey: false, deltaY: -1 }), false);
 saveToolIconSize(48);

@@ -8,14 +8,15 @@ import {
   previewTrackLabels,
   quickDownloadResultMessage,
 } from './quickDownload';
+import { useNcmAuth } from './NcmAuthContext';
 
 type NcmDownloadPreview = Awaited<ReturnType<typeof loadNcmDownloadPreview>>;
 
 interface NcmQuickDownloadDialogProps {
   open: boolean;
   initialUrl: string;
-  loggedIn: boolean;
-  validateLogin: () => Promise<boolean>;
+  loggedIn?: boolean;
+  validateLogin?: () => Promise<boolean>;
   onClose: () => void;
   onUrlSaved: (url: string) => void;
 }
@@ -26,11 +27,14 @@ const errorMessage = (error: unknown) =>
 export default function NcmQuickDownloadDialog({
   open,
   initialUrl,
-  loggedIn,
-  validateLogin,
+  loggedIn: loggedInProp,
+  validateLogin: validateLoginProp,
   onClose,
   onUrlSaved,
 }: NcmQuickDownloadDialogProps) {
+  const { logged: loggedFromAuth, validateForDownload } = useNcmAuth();
+  const loggedIn = loggedInProp ?? loggedFromAuth;
+  const validateLogin = validateLoginProp ?? validateForDownload;
   const [url, setUrl] = useState(initialUrl);
   const [level, setLevel] = useState('exhigh');
   const [preview, setPreview] = useState<NcmDownloadPreview | null>(null);

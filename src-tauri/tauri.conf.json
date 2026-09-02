@@ -8,7 +8,25 @@
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
-  "app": { "withGlobalTauri": true, "windows": [{ "title": "Toolbox", "width": 1100, "height": 750 }] },
-  "bundle": { "active": true, "targets": "all", "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"] },
-  "plugins": { "sql": { "preload": [{ "db": "sqlite:toolbox.db", "path": "toolbox.db" }] } }
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      { "label": "main", "title": "Toolbox", "width": 1100, "height": 750 },
+      { "label": "vpn-monitor", "title": "VPN 监控", "width": 360, "height": 150, "transparent": true, "decorations": false, "alwaysOnTop": true, "visible": false, "skipTaskbar": true, "resizable": true, "url": "index.html?monitor=1" }
+    ],
+    "trayIcon": { "iconPath": "icons/32x32.png", "tooltip": "Toolbox - VPN 监控" }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "sql": { "preload": ["sqlite:toolbox.db"] },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIwRTU4NDlDREQ2RDgzREYKUldUZmcyM2RuSVRsc0YzVU52V01ueTlQUTFWZ1RTcHROZEFiMG9zWGNNelRnN1dZSzRvWmsyLzYK",
+      "endpoints": ["https://github.com/everxys/toolbox/releases/latest/download/latest.json"]
+    }
+  }
 }

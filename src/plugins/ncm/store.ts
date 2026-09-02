@@ -1,32 +1,17 @@
-/**
- * 已下载记录 - Tauri 用 SQLite，Web fallback 用 localStorage
- * Key = id (唯一hash)，解决同名同歌手冲突
- */
-export const DOWNLOADED_KEY = 'ncm_downloaded_ids';
+import { invoke } from '@tauri-apps/api/core';
 
-export function loadDownloadedIds(): Set<number> {
-  try {
-    const raw = localStorage.getItem(DOWNLOADED_KEY);
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as number[]);
-  } catch {
-    return new Set();
-  }
-}
-
-export function saveDownloadedIds(ids: Set<number>) {
-  localStorage.setItem(DOWNLOADED_KEY, JSON.stringify([...ids]));
+export async function loadDownloadedIds(): Promise<Set<number>> {
+  return new Set(await invoke<number[]>('ncm_list_downloaded'));
 }
 
 export function markDownloaded(id: number) {
-  const s = loadDownloadedIds();
-  s.add(id);
-  saveDownloadedIds(s);
+  return invoke('ncm_mark_downloaded', { id });
 }
 
-export function isDownloaded(id: number): boolean {
-  return loadDownloadedIds().has(id);
+export function markDownloadedMany(ids: Iterable<number>) {
+  return invoke('ncm_mark_downloaded_many', { ids: [...ids] });
 }
 
-// Tauri SQLite 版本（生产）
-// invoke('ncm_db_init'), invoke('ncm_db_mark_downloaded', {id, path}), invoke('ncm_db_list')
+export async function isDownloaded(id: number): Promise<boolean> {
+  return (await loadDownloadedIds()).has(id);
+}

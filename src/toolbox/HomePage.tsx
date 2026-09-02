@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  adjustToolIconSize,
+  adjustToolCardSize,
   isPrimaryToolClick,
-  loadToolIconSize,
+  loadToolCardSize,
   runQuickAction,
-  saveToolIconSize,
+  saveToolCardSize,
   shouldAdjustToolIcons,
 } from './home';
 import { toolDefinitions, type ToolDefinition, type ToolId } from './tools';
@@ -24,12 +24,12 @@ interface ContextMenuState {
 
 export default function HomePage({ onOpenTool, onQuickAction }: HomePageProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [iconSize, setIconSize] = useState(loadToolIconSize);
-  const iconSizeRef = useRef(iconSize);
+  const [cardSize, setCardSize] = useState(loadToolCardSize);
+  const cardSizeRef = useRef(cardSize);
 
   useEffect(() => {
-    iconSizeRef.current = iconSize;
-  }, [iconSize]);
+    cardSizeRef.current = cardSize;
+  }, [cardSize]);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -40,27 +40,27 @@ export default function HomePage({ onOpenTool, onQuickAction }: HomePageProps) {
   }, []);
 
   useEffect(() => {
-    const adjustIcons = (event: WheelEvent) => {
+    const adjustCards = (event: WheelEvent) => {
       if (!shouldAdjustToolIcons(event)) return;
 
-      const nextSize = adjustToolIconSize(iconSizeRef.current, event.deltaY);
-      if (nextSize === iconSizeRef.current) return;
+      const nextSize = adjustToolCardSize(cardSizeRef.current, event.deltaY);
+      if (nextSize === cardSizeRef.current) return;
 
       event.preventDefault();
-      iconSizeRef.current = nextSize;
-      setIconSize(nextSize);
-      saveToolIconSize(nextSize);
+      cardSizeRef.current = nextSize;
+      setCardSize(nextSize);
+      saveToolCardSize(nextSize);
     };
 
-    window.addEventListener('wheel', adjustIcons, { passive: false });
-    return () => window.removeEventListener('wheel', adjustIcons);
+    window.addEventListener('wheel', adjustCards, { passive: false });
+    return () => window.removeEventListener('wheel', adjustCards);
   }, []);
 
   return (
     <main style={{ padding: '24px 0' }}>
       <h2>工具首页</h2>
-      <p style={{ color: '#666' }}>按住 Ctrl 并滚动鼠标滚轮可调整图标大小（当前 {iconSize}px）。</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
+      <p style={{ color: '#666' }}>按住 Ctrl 并滚动鼠标滚轮可调整工具卡片大小（当前 {cardSize}px）。</p>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, ${cardSize}px)`, gap: 16 }}>
         {toolDefinitions.map((tool) => (
           <article
             key={tool.id}
@@ -82,6 +82,7 @@ export default function HomePage({ onOpenTool, onQuickAction }: HomePageProps) {
             }}
             style={{
               aspectRatio: '1 / 1',
+              width: cardSize,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -95,7 +96,7 @@ export default function HomePage({ onOpenTool, onQuickAction }: HomePageProps) {
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
             }}
           >
-            <div style={{ fontSize: iconSize, lineHeight: 1 }} aria-hidden="true">{tool.icon}</div>
+            <div style={{ fontSize: Math.round(cardSize * 0.24), lineHeight: 1 }} aria-hidden="true">{tool.icon}</div>
             <h3 style={{ margin: '14px 0 8px' }}>{tool.name}</h3>
             <p style={{ margin: 0, color: '#666' }}>{tool.description}</p>
           </article>

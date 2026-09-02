@@ -51,7 +51,7 @@ export async function loadNcmDownloadPreview(url: string) {
   if (!id) throw new Error('仅支持网易云音乐歌单分享链接');
   const { info, trackIds } = await fetchPlaylistDetail(id);
   const tracks = await fetchSongDetailsBatched(trackIds.map((track) => track.id));
-  return { info, pending: pendingTracks(tracks, loadDownloadedIds()) };
+  return { info, pending: pendingTracks(tracks, await loadDownloadedIds()) };
 }
 
 export const previewSummary = (tracks: Track[]) =>
