@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { checkGoogle, type VpnCheckResult } from './api';
 
 const INTERVAL_KEY = 'vpn_monitor_interval_ms';
+const ENABLED_KEY = 'vpn_monitor_enabled';
 const DEFAULT_INTERVAL = 8000;
 
 function formatTime(ts: string) {
@@ -14,6 +15,7 @@ function formatTime(ts: string) {
 export default function VpnFloatingMonitor({ embedded = false }: { embedded?: boolean }) {
   const [result, setResult] = useState<VpnCheckResult | null>(null);
   const [checking, setChecking] = useState(false);
+  const [enabled, setEnabled] = useState(() => localStorage.getItem(ENABLED_KEY) !== '0');
   const [intervalMs, setIntervalMs] = useState(() => {
     const v = Number(localStorage.getItem(INTERVAL_KEY));
     return Number.isFinite(v) && v >= 3000 ? v : DEFAULT_INTERVAL;
@@ -33,15 +35,20 @@ export default function VpnFloatingMonitor({ embedded = false }: { embedded?: bo
   };
 
   useEffect(() => {
+    localStorage.setItem(INTERVAL_KEY, String(intervalMs));
+    localStorage.setItem(ENABLED_KEY, enabled ? '1' : '0');
+    if (!enabled) {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      return;
+    }
     void runCheck();
     timerRef.current = window.setInterval(() => void runCheck(), intervalMs);
-    localStorage.setItem(INTERVAL_KEY, String(intervalMs));
     return () => { if (timerRef.current) window.clearInterval(timerRef.current); };
-  }, [intervalMs]);
+  }, [intervalMs, enabled]);
 
-  const ok = result?.ok ?? null;
-  const dotColor = ok === null ? '#999' : ok ? '#22c55e' : '#ef4444';
-  const statusText = ok === null ? '检测中…' : ok ? 'Google 连接正常' : 'Google 连接异常';
+  const ok = !enabled ? null : result?.ok ?? null;
+  const dotColor = !enabled ? '#999' : ok === null ? '#999' : ok ? '#22c55e' : '#ef4444';
+  const statusText = !enabled ? '已暂停检测' : ok === null ? '检测中…' : ok ? 'Google 连接正常' : 'Google 连接异常';
   const latency = result?.latency_ms != null ? `${result.latency_ms} ms` : '—';
 
   const closeWindow = async () => {
@@ -114,11 +121,14 @@ export default function VpnFloatingMonitor({ embedded = false }: { embedded?: bo
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer' }}>
+            <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> 启用检测
+          </label>
           <button
             onClick={() => void runCheck()}
-            disabled={checking}
-            style={{ flex: 1, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', borderRadius: 8, padding: '6px 0', fontSize: 12, cursor: 'pointer' }}
+            disabled={checking || !enabled}
+            style={{ flex: 1, border: '1px solid rgba(0,0,0,0.08)', background: enabled ? '#fff' : '#f5f5f5', borderRadius: 8, padding: '6px 0', fontSize: 12, cursor: enabled ? 'pointer' : 'not-allowed' }}
           >立即检测</button>
           <select
             value={[5000, 8000, 15000, 30000, 60000].includes(intervalMs) ? intervalMs : -1}

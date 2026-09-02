@@ -5,7 +5,7 @@ import VpnFloatingMonitor from './VpnFloatingMonitor';
 export default function VpnMonitorTool() {
   const [result, setResult] = useState<VpnCheckResult | null>(null);
   const [checking, setChecking] = useState(false);
-  const [auto, setAuto] = useState(true);
+  const [auto, setAuto] = useState(() => localStorage.getItem('vpn_monitor_enabled') !== '0');
 
   const run = async () => {
     setChecking(true);
@@ -17,8 +17,13 @@ export default function VpnMonitorTool() {
     } finally { setChecking(false); }
   };
 
-  useEffect(() => { void run(); }, []);
   useEffect(() => {
+    localStorage.setItem('vpn_monitor_enabled', auto ? '1' : '0');
+    if (!auto) return;
+    void run();
+  }, []);
+  useEffect(() => {
+    localStorage.setItem('vpn_monitor_enabled', auto ? '1' : '0');
     if (!auto) return;
     const id = window.setInterval(() => void run(), 8000);
     return () => window.clearInterval(id);
