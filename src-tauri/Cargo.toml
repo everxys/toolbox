@@ -1,6 +1,6 @@
 [package]
 name = "toolbox"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 
 [build-dependencies]
@@ -16,5 +16,6 @@ tauri-plugin-process = "2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "time", "fs", "io-util", "sync"] }
 futures-util = "0.3"
+
 
 
