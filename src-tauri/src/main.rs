@@ -36,30 +36,54 @@ fn main() {
             let quit_item = MenuItemBuilder::with_id("quit", "退出 Toolbox").build(app)?;
             let monitor_item = MenuItemBuilder::with_id("monitor", "打开监控栏").build(app)?;
             let menu = MenuBuilder::new(app).items(&[&monitor_item, &quit_item]).build()?;
-            let _tray = TrayIconBuilder::with_id("toolbox-tray")
-                .icon(app.default_window_icon().cloned().unwrap())
+            let tray_builder = TrayIconBuilder::with_id("toolbox-tray")
                 .menu(&menu)
                 .tooltip("Toolbox - VPN 监控")
-                .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id().as_ref() {
-                    "quit" => app.exit(0),
-                    "monitor" => {
-                        let handle = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let _ = vpn::vpn_toggle_monitor_window(handle).await;
-                        });
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
-                        if let Some(win) = tray.app_handle().get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
+                .show_menu_on_left_click(false);
+            let _tray = if let Some(icon) = app.default_window_icon().cloned() {
+                tray_builder
+                    .icon(icon)
+                    .on_menu_event(|app, event| match event.id().as_ref() {
+                        "quit" => app.exit(0),
+                        "monitor" => {
+                            let handle = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                let _ = vpn::vpn_toggle_monitor_window(handle).await;
+                            });
                         }
-                    }
-                })
-                .build(app)?;
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let tauri::tray::TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
+                            if let Some(win) = tray.app_handle().get_webview_window("main") {
+                                let _ = win.show();
+                                let _ = win.set_focus();
+                            }
+                        }
+                    })
+                    .build(app)?
+            } else {
+                tray_builder
+                    .on_menu_event(|app, event| match event.id().as_ref() {
+                        "quit" => app.exit(0),
+                        "monitor" => {
+                            let handle = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                let _ = vpn::vpn_toggle_monitor_window(handle).await;
+                            });
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let tauri::tray::TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
+                            if let Some(win) = tray.app_handle().get_webview_window("main") {
+                                let _ = win.show();
+                                let _ = win.set_focus();
+                            }
+                        }
+                    })
+                    .build(app)?
+            };
             Ok(())
         })
         .run(tauri::generate_context!())
