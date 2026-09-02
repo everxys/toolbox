@@ -10,23 +10,33 @@ import VpnMonitorTool from './plugins/vpn-monitor/VpnMonitorTool';
 import { openMonitorWindow } from './plugins/vpn-monitor/api';
 import UpdaterButton from './toolbox/UpdaterButton';
 
-function AuthHeader({ onShowLogin }: { onShowLogin: () => void }) {
-  const { nickname, logged, logout } = useNcmAuth();
+function AppHeader() {
   return (
     <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
       <h1>Toolbox 合集 - 跨平台 (Tauri)</h1>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <UpdaterButton />
-        {logged ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
-            <span title="网易云音乐登录账号">👤 {nickname}</span>
-            <button onClick={() => void logout()}>退出登录</button>
-          </div>
-        ) : (
-          <button onClick={onShowLogin}>登录</button>
-        )}
       </div>
     </header>
+  );
+}
+
+function NcmToolHeader({ onShowLogin }: { onShowLogin: () => void }) {
+  const { nickname, logged, logout } = useNcmAuth();
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 16px', borderBottom: '1px solid #eee', background: '#fafafa' }}>
+      <span style={{ fontSize: 13, color: '#666' }}>网易云歌单 — 需登录后下载</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {logged ? (
+          <>
+            <span title="网易云音乐登录账号" style={{ fontSize: 13 }}>👤 {nickname}</span>
+            <button onClick={() => void logout()} style={{ fontSize: 13 }}>退出登录</button>
+          </>
+        ) : (
+          <button onClick={onShowLogin} style={{ fontSize: 13 }}>登录网易云</button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -54,7 +64,7 @@ function AppShell() {
   };
   return (
     <div style={{ fontFamily: 'sans-serif', maxWidth: 900, margin: '0 auto' }}>
-      <AuthHeader onShowLogin={() => setShowLogin(true)} />
+      <AppHeader />
       {showLogin && (
         <div
           role="dialog"
@@ -79,6 +89,7 @@ function AppShell() {
             <span style={{ background: '#eee', padding: '4px 8px', borderRadius: 6 }}>🎵 网易云歌单</span>
             <span style={{ opacity: 0.5 }}>🧰 更多工具 …</span>
           </nav>
+          <NcmToolHeader onShowLogin={() => setShowLogin(true)} />
           <PlaylistDownloader />
         </ToolPageShell>
       ) : (
