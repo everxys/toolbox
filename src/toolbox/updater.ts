@@ -11,9 +11,17 @@ export type UpdaterState =
   | { status: 'error'; message: string };
 
 export async function checkForUpdate(): Promise<UpdaterState> {
-  const update = await check();
-  if (!update) return { status: 'up-to-date' };
-  return { status: 'available', version: update.version, notes: update.body };
+  try {
+    const update = await check();
+    if (!update) return { status: 'up-to-date' };
+    return { status: 'available', version: update.version, notes: update.body };
+  } catch (e) {
+    const msg = String(e);
+    if (msg.includes('fallback platforms') || msg.includes('not found in the response platforms')) {
+      return { status: 'error', message: 'Windows 安装包构建中，请稍后重试' };
+    }
+    throw e;
+  }
 }
 
 export async function downloadAndInstall(onEvent?: (downloaded: number, total?: number) => void): Promise<void> {
