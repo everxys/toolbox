@@ -58,6 +58,17 @@ export default function VpnFloatingMonitor({ embedded = false }: { embedded?: bo
     } catch { window.close(); }
   };
 
+  const handleDragMouseDown: React.MouseEventHandler<HTMLDivElement> = async (e) => {
+    if (embedded) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, select, a')) return;
+    if (e.button !== 0) return;
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      await getCurrentWindow().startDragging();
+    } catch {}
+  };
+
   return (
     <>
       {!embedded && (
@@ -65,6 +76,7 @@ export default function VpnFloatingMonitor({ embedded = false }: { embedded?: bo
       )}
       <div
         data-tauri-drag-region={!embedded || undefined}
+        onMouseDown={handleDragMouseDown}
         style={{
           width: embedded ? '100%' : '100%',
           height: embedded ? 'auto' : '100%',
@@ -79,6 +91,7 @@ export default function VpnFloatingMonitor({ embedded = false }: { embedded?: bo
       >
         <div
           data-tauri-drag-region={!embedded || undefined}
+          onMouseDown={handleDragMouseDown}
           style={{
             width: '100%',
             maxWidth: 340,

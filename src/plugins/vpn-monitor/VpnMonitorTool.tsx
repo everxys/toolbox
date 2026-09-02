@@ -19,12 +19,10 @@ export default function VpnMonitorTool() {
 
   useEffect(() => {
     localStorage.setItem('vpn_monitor_enabled', auto ? '1' : '0');
+  }, [auto]);
+  useEffect(() => {
     if (!auto) return;
     void run();
-  }, []);
-  useEffect(() => {
-    localStorage.setItem('vpn_monitor_enabled', auto ? '1' : '0');
-    if (!auto) return;
     const id = window.setInterval(() => void run(), 8000);
     return () => window.clearInterval(id);
   }, [auto]);
@@ -41,9 +39,6 @@ export default function VpnMonitorTool() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={() => void run()} disabled={checking}>{checking ? '检测中…' : '立即检测 Google'}</button>
         <button onClick={() => void openMonitorWindow()}>打开悬浮监控栏</button>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-          <input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} /> 自动每 8s 检测
-        </label>
         <button onClick={quit} style={{ marginLeft: 'auto', background: '#fee', border: '1px solid #fcc', borderRadius: 6, padding: '6px 10px' }}>退出 Toolbox</button>
       </div>
 
