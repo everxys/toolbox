@@ -24,6 +24,7 @@ fn main() {
             vpn::vpn_check_google,
             vpn::vpn_open_monitor_window,
             vpn::vpn_close_monitor_window,
+            vpn::vpn_toggle_monitor_window,
             vpn::vpn_quit_app
         ])
         .setup(|app| {
@@ -35,16 +36,17 @@ fn main() {
             let quit_item = MenuItemBuilder::with_id("quit", "退出 Toolbox").build(app)?;
             let monitor_item = MenuItemBuilder::with_id("monitor", "打开监控栏").build(app)?;
             let menu = MenuBuilder::new(app).items(&[&monitor_item, &quit_item]).build()?;
-            let _tray = TrayIconBuilder::new()
+            let _tray = TrayIconBuilder::with_id("toolbox-tray")
                 .icon(app.default_window_icon().cloned().unwrap())
                 .menu(&menu)
+                .tooltip("Toolbox - VPN 监控")
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "quit" => app.exit(0),
                     "monitor" => {
                         let handle = app.clone();
                         tauri::async_runtime::spawn(async move {
-                            let _ = vpn::vpn_open_monitor_window(handle).await;
+                            let _ = vpn::vpn_toggle_monitor_window(handle).await;
                         });
                     }
                     _ => {}

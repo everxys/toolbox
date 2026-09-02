@@ -80,6 +80,38 @@ pub async fn vpn_check_google() -> Result<VpnCheckResult, String> {
     }
 }
 
+fn is_monitor_visible(app: &tauri::AppHandle) -> bool {
+    use tauri::Manager;
+    app.get_webview_window("vpn-monitor")
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false)
+}
+
+pub fn sync_tray_menu(app: &tauri::AppHandle) {
+    use tauri::{
+        menu::{MenuBuilder, MenuItemBuilder},
+        Manager,
+    };
+    let visible = is_monitor_visible(app);
+    let label = if visible { "关闭监控栏" } else { "打开监控栏" };
+    // 重建托盘菜单以切换文案
+    let tray = app.tray_by_id("toolbox-tray");
+    if let Some(tray) = tray {
+        if let Ok(monitor_item) = MenuItemBuilder::with_id("monitor", label).build(app) {
+            if let Ok(quit_item) = MenuItemBuilder::with_id("quit", "退出 Toolbox").build(app) {
+                if let Ok(menu) = MenuBuilder::new(app).items(&[&monitor_item, &quit_item]).build() {
+                    let _ = tray.set_menu(Some(menu));
+                    let _ = tray.set_tooltip(Some(if visible {
+                        "Toolbox - 监控栏已打开"
+                    } else {
+                        "Toolbox - VPN 监控"
+                    }));
+                }
+            }
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn vpn_open_monitor_window(app: tauri::AppHandle) -> Result<(), String> {
     use tauri::Manager;
@@ -87,6 +119,7 @@ pub async fn vpn_open_monitor_window(app: tauri::AppHandle) -> Result<(), String
         win.show().map_err(|e| e.to_string())?;
         win.set_focus().map_err(|e| e.to_string())?;
         win.set_always_on_top(true).map_err(|e| e.to_string())?;
+        sync_tray_menu(&app);
         return Ok(());
     }
     // 动态创建悬浮窗（若 tauri.conf 未预定义则兜底创建）
@@ -104,6 +137,7 @@ pub async fn vpn_open_monitor_window(app: tauri::AppHandle) -> Result<(), String
         .build()
         .map_err(|e| e.to_string())?;
     win.set_always_on_top(true).map_err(|e| e.to_string())?;
+    sync_tray_menu(&app);
     Ok(())
 }
 
@@ -113,7 +147,19 @@ pub async fn vpn_close_monitor_window(app: tauri::AppHandle) -> Result<(), Strin
     if let Some(win) = app.get_webview_window("vpn-monitor") {
         win.hide().map_err(|e| e.to_string())?;
     }
+    sync_tray_menu(&app);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn vpn_toggle_monitor_window(app: tauri::AppHandle) -> Result<bool, String> {
+    if is_monitor_visible(&app) {
+        vpn_close_monitor_window(app.clone()).await?;
+        Ok(false)
+    } else {
+        vpn_open_monitor_window(app.clone()).await?;
+        Ok(true)
+    }
 }
 
 #[tauri::command]
