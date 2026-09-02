@@ -39,22 +39,3 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: ./dist
-      - run: ls -R ./dist
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/**/bundle/**/*.msi
-            dist/**/bundle/**/*.exe
-            dist/**/bundle/**/*AppImage*
-            dist/**/bundle/**/*.deb
-            dist/**/latest.json
-          generate_release_notes: true
