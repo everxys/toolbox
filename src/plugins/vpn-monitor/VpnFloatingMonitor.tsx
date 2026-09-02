@@ -52,32 +52,42 @@ export default function VpnFloatingMonitor({ embedded = false }: { embedded?: bo
   };
 
   return (
-    <div
-      style={{
-        width: embedded ? '100%' : '100vw',
-        height: embedded ? 'auto' : '100vh',
-        display: 'grid',
-        placeItems: 'center',
-        background: embedded ? 'transparent' : 'rgba(0,0,0,0.0)',
-        padding: embedded ? 0 : 8,
-      }}
-    >
+    <>
+      {!embedded && (
+        <style>{`html,body{margin:0;padding:0;overflow:hidden;background:transparent}::-webkit-scrollbar{display:none}*{scrollbar-width:none}`}</style>
+      )}
       <div
-        data-tauri-drag-region
+        data-tauri-drag-region={!embedded || undefined}
         style={{
-          width: '100%',
-          maxWidth: 360,
-          borderRadius: 16,
-          padding: '14px 16px',
-          background: 'rgba(255,255,255,0.72)',
-          backdropFilter: 'blur(16px) saturate(1.4)',
-          WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
-          border: '1px solid rgba(255,255,255,0.6)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
-          fontFamily: 'sans-serif',
-          userSelect: 'none',
+          width: embedded ? '100%' : '100%',
+          height: embedded ? 'auto' : '100%',
+          minHeight: embedded ? undefined : '100vh',
+          boxSizing: 'border-box',
+          display: 'grid',
+          placeItems: 'center',
+          background: embedded ? 'transparent' : 'transparent',
+          padding: embedded ? 0 : 8,
+          overflow: 'hidden',
         }}
       >
+        <div
+          data-tauri-drag-region={!embedded || undefined}
+          style={{
+            width: '100%',
+            maxWidth: 340,
+            boxSizing: 'border-box',
+            borderRadius: 16,
+            padding: '14px 16px',
+            background: 'rgba(255,255,255,0.72)',
+            backdropFilter: 'blur(16px) saturate(1.4)',
+            WebkitBackdropFilter: 'blur(16px) saturate(1.4)',
+            border: '1px solid rgba(255,255,255,0.6)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
+            fontFamily: 'sans-serif',
+            userSelect: 'none',
+            overflow: 'hidden',
+          }}
+        >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ width: 10, height: 10, borderRadius: 999, background: dotColor, boxShadow: `0 0 8px ${dotColor}`, display: 'inline-block', flexShrink: 0 }} />
@@ -111,8 +121,12 @@ export default function VpnFloatingMonitor({ embedded = false }: { embedded?: bo
             style={{ flex: 1, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', borderRadius: 8, padding: '6px 0', fontSize: 12, cursor: 'pointer' }}
           >立即检测</button>
           <select
-            value={intervalMs}
-            onChange={(e) => setIntervalMs(Number(e.target.value))}
+            value={[5000, 8000, 15000, 30000, 60000].includes(intervalMs) ? intervalMs : -1}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (v === -1) return;
+              setIntervalMs(v);
+            }}
             style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 8, padding: '5px 6px', fontSize: 12, background: '#fff' }}
             aria-label="检测间隔"
           >
@@ -121,12 +135,29 @@ export default function VpnFloatingMonitor({ embedded = false }: { embedded?: bo
             <option value={15000}>15s</option>
             <option value={30000}>30s</option>
             <option value={60000}>60s</option>
+            {![5000, 8000, 15000, 30000, 60000].includes(intervalMs) && <option value={-1}>{Math.round(intervalMs / 1000)}s 自定义</option>}
           </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#444' }}>
+            每
+            <input
+              type="number"
+              min={3}
+              max={300}
+              value={Math.round(intervalMs / 1000)}
+              onChange={(e) => {
+                const sec = Math.min(300, Math.max(3, Number(e.target.value) || 8));
+                setIntervalMs(sec * 1000);
+              }}
+              style={{ width: 48, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 6, padding: '4px 6px', fontSize: 12, background: '#fff' }}
+            />
+            秒
+          </label>
         </div>
         <div style={{ marginTop: 6, fontSize: 10, color: '#888', textAlign: 'center' }} data-tauri-drag-region>
-          拖动此卡片可移动窗口 · 右键托盘图标退出
+          拖动此卡片任意空白可移动窗口 · 右键托盘图标退出
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
