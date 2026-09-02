@@ -4,7 +4,6 @@ use commands::{ncm, vpn};
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(ncm::LoginState::default())

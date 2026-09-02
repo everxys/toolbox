@@ -20,8 +20,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: toolbox-${{ matrix.os }}
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: '20', cache: 'npm' }
       - uses: dtolnay/rust-toolchain@stable
       - name: install Linux deps
         if: matrix.os == 'ubuntu-22.04'

@@ -26,7 +26,6 @@
     }
   },
   "plugins": {
-    "sql": { "preload": ["sqlite:toolbox.db"] },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIwRTU4NDlDREQ2RDgzREYKUldUZmcyM2RuSVRsc0YzVU52V01ueTlQUTFWZ1RTcHROZEFiMG9zWGNNelRnN1dZSzRvWmsyLzYK",
       "endpoints": ["https://github.com/everxys/toolbox/releases/latest/download/latest.json"]
