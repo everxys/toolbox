@@ -22,8 +22,16 @@ export interface LibraryFilter {
   priority: number | null;
   read: boolean | null;
   type: string | null;
+  format: string | null;
   hasDescription: boolean;
   sort: { field: SortField; direction: 'asc' | 'desc' };
+}
+
+/** Returns the file format shown to the user, based on the book's real filename. */
+export function bookFormat(book: Pick<LibraryBook, 'relativePath'>): string {
+  const filename = book.relativePath.replace(/\\/g, '/').split('/').pop() ?? '';
+  const dot = filename.lastIndexOf('.');
+  return dot > 0 && dot < filename.length - 1 ? filename.slice(dot + 1).toLowerCase() : '无扩展名';
 }
 
 export function buildLibraryTree(books: LibraryBook[]): LibraryNode {
@@ -45,11 +53,13 @@ export function buildLibraryTree(books: LibraryBook[]): LibraryNode {
 }
 
 function matches(book: LibraryBook, filter: LibraryFilter) {
-  const haystack = `${book.title}\n${book.bookType}\n${book.description}`.toLowerCase();
+  const format = bookFormat(book);
+  const haystack = `${book.title}\n${format}\n${book.bookType}\n${book.description}`.toLowerCase();
   return (!filter.query || haystack.includes(filter.query.toLowerCase()))
     && (filter.priority === null || book.priority === filter.priority)
     && (filter.read === null || book.read === filter.read)
     && (!filter.type || book.bookType === filter.type)
+    && (!filter.format || format === filter.format)
     && (!filter.hasDescription || book.description.trim().length > 0);
 }
 

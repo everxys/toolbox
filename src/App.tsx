@@ -59,7 +59,7 @@ function AppShell() {
     }
   };
   return (
-    <div style={{ fontFamily: 'sans-serif', maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ fontFamily: 'sans-serif', width: 'calc(100% - 32px)', maxWidth: view === 'library' ? 1280 : 900, margin: '0 auto' }}>
       <AppHeader />
       {showLogin && (
         <div
