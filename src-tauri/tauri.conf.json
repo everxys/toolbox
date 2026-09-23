@@ -1,6 +1,6 @@
 {
   "productName": "Toolbox",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "identifier": "com.toolbox.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -11,10 +11,8 @@
   "app": {
     "withGlobalTauri": true,
     "windows": [
-      { "label": "main", "title": "Toolbox", "width": 1100, "height": 750 },
-      { "label": "vpn-monitor", "title": "VPN 监控", "width": 360, "height": 150, "transparent": true, "decorations": false, "alwaysOnTop": true, "visible": false, "skipTaskbar": true, "resizable": true, "url": "index.html?monitor=1" }
-    ],
-    "trayIcon": { "iconPath": "icons/32x32.png", "tooltip": "Toolbox - VPN 监控" }
+      { "label": "main", "title": "Toolbox", "width": 1100, "height": 750 }
+    ]
   },
   "bundle": {
     "active": true,

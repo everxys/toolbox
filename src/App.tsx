@@ -6,8 +6,8 @@ import { NcmAuthProvider, useNcmAuth } from './plugins/ncm/NcmAuthContext';
 import HomePage from './toolbox/HomePage';
 import ToolPageShell from './toolbox/ToolPageShell';
 import { loadLastNcmPlaylistUrl, saveLastNcmPlaylistUrl, type ToolId } from './toolbox/tools';
-import VpnMonitorTool from './plugins/vpn-monitor/VpnMonitorTool';
-import { openMonitorWindow } from './plugins/vpn-monitor/api';
+import LibraryTool from './plugins/library/LibraryTool';
+import SkillManagerTool from './plugins/skills/SkillManagerTool';
 import UpdaterButton from './toolbox/UpdaterButton';
 
 function AppHeader() {
@@ -41,7 +41,7 @@ function NcmToolHeader({ onShowLogin }: { onShowLogin: () => void }) {
 }
 
 function AppShell() {
-  const [view, setView] = useState<'home' | 'ncm' | 'vpn-monitor'>('home');
+  const [view, setView] = useState<'home' | 'ncm' | 'library' | 'skills'>('home');
   const [showLogin, setShowLogin] = useState(false);
   const [showQuickDownload, setShowQuickDownload] = useState(false);
   const [quickDownloadInitialUrl, setQuickDownloadInitialUrl] = useState('');
@@ -51,15 +51,11 @@ function AppShell() {
     await login(cookie);
     setShowLogin(false);
   };
-  const handleQuickAction = (toolId: ToolId, actionId: 'download-undownloaded' | 'vpn-open-monitor') => {
+  const handleQuickAction = (toolId: ToolId, actionId: string) => {
     if (toolId === 'ncm' && actionId === 'download-undownloaded') {
       setQuickDownloadInitialUrl(loadLastNcmPlaylistUrl());
       setShowQuickDownload(true);
       return;
-    }
-    if (toolId === 'vpn-monitor' && actionId === 'vpn-open-monitor') {
-      void openMonitorWindow();
-      setView('vpn-monitor');
     }
   };
   return (
@@ -92,13 +88,19 @@ function AppShell() {
           <NcmToolHeader onShowLogin={() => setShowLogin(true)} />
           <PlaylistDownloader />
         </ToolPageShell>
+      ) : view === 'library' ? (
+        <ToolPageShell onBackHome={() => setView('home')}>
+          <nav style={{ display: 'flex', gap: 12, borderBottom: '1px solid #ddd', padding: '8px 16px' }}>
+            <span style={{ background: '#eee', padding: '4px 8px', borderRadius: 6 }}>📚 图书馆</span>
+          </nav>
+          <LibraryTool />
+        </ToolPageShell>
       ) : (
         <ToolPageShell onBackHome={() => setView('home')}>
           <nav style={{ display: 'flex', gap: 12, borderBottom: '1px solid #ddd', padding: '8px 16px' }}>
-            <span style={{ background: '#eee', padding: '4px 8px', borderRadius: 6 }}>🛡️ VPN 监控</span>
-            <span style={{ opacity: 0.5 }}>🧰 更多工具 …</span>
+            <span style={{ background: '#eee', padding: '4px 8px', borderRadius: 6 }}>🧩 Skill 管理</span>
           </nav>
-          <VpnMonitorTool />
+          <SkillManagerTool />
         </ToolPageShell>
       )}
       <NcmQuickDownloadDialog

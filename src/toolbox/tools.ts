@@ -1,11 +1,11 @@
-export type ToolId = 'ncm' | 'vpn-monitor';
+export type ToolId = 'ncm' | 'library' | 'skills';
 
 export interface ToolDefinition {
   id: ToolId;
   name: string;
   description: string;
   icon: string;
-  quickActions: Array<{ id: 'download-undownloaded' | 'vpn-open-monitor'; label: string }>;
+  quickActions: Array<{ id: string; label: string }>;
 }
 
 export const toolDefinitions: ToolDefinition[] = [
@@ -17,11 +17,18 @@ export const toolDefinitions: ToolDefinition[] = [
     quickActions: [{ id: 'download-undownloaded', label: '解析歌单并下载所有未下载歌曲' }],
   },
   {
-    id: 'vpn-monitor',
-    name: 'VPN 连接监控',
-    description: '定时 curl google.com 检测 Clash 代理是否有效',
-    icon: '🛡️',
-    quickActions: [{ id: 'vpn-open-monitor', label: '打开悬浮监控栏' }],
+    id: 'library',
+    name: '图书馆',
+    description: '管理本地书籍、阅读状态与笔记',
+    icon: '📚',
+    quickActions: [],
+  },
+  {
+    id: 'skills',
+    name: 'Skill 管理',
+    description: '扫描、分类和维护本地 Agent skills',
+    icon: '🧩',
+    quickActions: [],
   },
 ];
 

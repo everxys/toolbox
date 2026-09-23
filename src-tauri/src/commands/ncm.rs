@@ -368,9 +368,11 @@ pub fn ncm_open_download_dir(app: AppHandle) -> Result<(), String> {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct PlaylistDetail { pub info: PlaylistInfo, pub trackIds: Vec<TrackId> }
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistDetail { pub info: PlaylistInfo, pub track_ids: Vec<TrackId> }
 #[derive(Serialize, Deserialize)]
-pub struct PlaylistInfo { pub id: i64, pub name: String, pub creator: String, pub trackCount: i32, pub playCount: i64, pub coverUrl: String }
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistInfo { pub id: i64, pub name: String, pub creator: String, pub track_count: i32, pub play_count: i64, pub cover_url: String }
 #[derive(Serialize, Deserialize)]
 pub struct TrackId { pub id: i64, pub v: i32 }
 
@@ -385,11 +387,11 @@ pub async fn ncm_playlist_detail(id: i64) -> Result<PlaylistDetail, String> {
             id: pl["id"].as_i64().unwrap_or(id),
             name: pl["name"].as_str().unwrap_or("").to_string(),
             creator: pl["creator"]["nickname"].as_str().unwrap_or("").to_string(),
-            trackCount: pl["trackCount"].as_i64().unwrap_or(0) as i32,
-            playCount: pl["playCount"].as_i64().unwrap_or(0),
-            coverUrl: pl["coverImgUrl"].as_str().unwrap_or("").to_string(),
+            track_count: pl["trackCount"].as_i64().unwrap_or(0) as i32,
+            play_count: pl["playCount"].as_i64().unwrap_or(0),
+            cover_url: pl["coverImgUrl"].as_str().unwrap_or("").to_string(),
         },
-        trackIds: serde_json::from_value(pl["trackIds"].clone()).map_err(|e| e.to_string())?,
+        track_ids: serde_json::from_value(pl["trackIds"].clone()).map_err(|e| e.to_string())?,
     })
 }
 

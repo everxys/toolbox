@@ -27,6 +27,8 @@ globalThis.localStorage = {
 };
 
 assert.equal(getToolById('ncm').name, '网易云音乐歌单');
+assert.equal(getToolById('library').name, '图书馆');
+assert.equal(getToolById('skills').name, 'Skill 管理');
 saveLastNcmPlaylistUrl('https://music.163.com/playlist?id=1');
 assert.equal(loadLastNcmPlaylistUrl(), 'https://music.163.com/playlist?id=1');
 assert.equal(isPrimaryToolClick(0), true);
