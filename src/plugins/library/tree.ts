@@ -24,7 +24,7 @@ export interface LibraryFilter {
   type: string | null;
   format: string | null;
   hasDescription: boolean;
-  sort: { field: SortField; direction: 'asc' | 'desc' };
+  sort: { field: SortField; direction: 'asc' | 'desc' } | null;
 }
 
 /** Returns the file format shown to the user, based on the book's real filename. */
@@ -81,6 +81,7 @@ export function filterAndSortLibraryTree(node: LibraryNode, filter: LibraryFilte
   const books = node.children
     .filter((child) => child.kind === 'book' && child.book && matches(child.book, filter))
     .sort((a, b) => {
+      if (!filter.sort) return 0;
       const left = value(a.book!, filter.sort.field);
       const right = value(b.book!, filter.sort.field);
       const order = typeof left === 'string' ? left.localeCompare(String(right), 'zh-CN') : Number(left) - Number(right);
