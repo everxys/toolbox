@@ -164,9 +164,12 @@ pub fn library_set_read_status(path: String, read: bool) -> Result<(), String> {
     let target_links = links_pointing_to(&target_root, &book)?;
     if !source_links.is_empty() && !target_links.is_empty() { return Err("read 和 unread 中都存在这本书的快捷方式，请刷新后处理冲突".into()); }
     if !source_links.is_empty() {
+        if source_links.len() > 1 { return Err("同一阅读状态目录中存在多个指向这本书的快捷方式，请先手动保留一个再重试".into()); }
         if target.exists() { return Err(format!("目标快捷方式已存在，无法安全迁移：{}", target.display())); }
-        create_shortcut(&target, &book)?;
-        for source in source_links { fs::remove_file(&source).map_err(|e| format!("无法删除旧快捷方式：{e}"))?; cleanup_empty_dirs(&source, &source_root); }
+        fs::create_dir_all(target.parent().ok_or("快捷方式缺少父目录")?).map_err(|e| e.to_string())?;
+        let source = &source_links[0];
+        fs::rename(source, &target).map_err(|e| format!("无法移动阅读状态快捷方式：{e}"))?;
+        cleanup_empty_dirs(source, &source_root);
     } else if target_links.is_empty() {
         if target.exists() { return Err(format!("目标快捷方式已存在且指向其他文件：{}", target.display())); }
         create_shortcut(&target, &book)?;
