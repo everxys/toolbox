@@ -3,12 +3,14 @@ import { deleteSkill, deleteSkillCategory, listSkillCategories, saveSkillCategor
 import { matchesSkillSearch } from './filters';
 
 const button = { cursor: 'pointer' };
+interface CategoryMenuState { category: SkillCategory; x: number; y: number }
 
 export default function SkillManagerTool() {
   const [skills, setSkills] = useState<Skill[]>([]); const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [query, setQuery] = useState(''); const [categoryFilter, setCategoryFilter] = useState<number | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [editingCategory, setEditingCategory] = useState<SkillCategory | null | undefined>(undefined);
+  const [categoryMenu, setCategoryMenu] = useState<CategoryMenuState | null>(null);
   const refresh = async () => { setLoading(true); setError(''); try { const [nextSkills, nextCategories] = await Promise.all([scanSkills(), listSkillCategories()]); setSkills(nextSkills); setCategories(nextCategories); } catch (reason) { setError(String(reason)); } finally { setLoading(false); } };
   useEffect(() => { void refresh(); }, []);
   useEffect(() => { const update = () => setShowBackToTop(window.scrollY > 320); window.addEventListener('scroll', update, { passive: true }); update(); return () => window.removeEventListener('scroll', update); }, []);
@@ -24,17 +26,23 @@ export default function SkillManagerTool() {
       <input aria-label="搜索 skill" placeholder="搜索名称、原生说明、自定义描述" value={query} onChange={(event) => setQuery(event.target.value)} />
       <button onClick={() => setEditingCategory(null)} style={button}>新建分类</button><button onClick={() => void refresh()} disabled={loading} style={button}>↻ 刷新</button>
     </div>
-    <div aria-label="Skill 分类" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8, borderBottom: '1px solid #ddd', paddingBottom: 8 }}><button onClick={() => setCategoryFilter(null)} style={{ ...tabStyle, ...(categoryFilter === null ? activeTabStyle : {}) }}>全部</button>{categories.map((category) => <span key={category.id} style={{ display: 'inline-flex', alignItems: 'center', borderBottom: categoryFilter === category.id ? '2px solid #2563eb' : '2px solid transparent' }}><button onClick={() => setCategoryFilter(category.id)} style={{ ...tabStyle, ...(categoryFilter === category.id ? activeTabStyle : {}) }}>{category.name}</button><button aria-label={`编辑分类 ${category.name}`} onClick={() => setEditingCategory(category)} style={iconButton}>✎</button><button aria-label={`删除分类 ${category.name}`} onClick={() => void removeCategory(category)} style={{ ...iconButton, color: '#b00020' }}>×</button></span>)}</div>
+    <div aria-label="Skill 分类" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 8, borderBottom: '1px solid #ddd', paddingBottom: 8 }}><button onClick={() => setCategoryFilter(null)} style={{ ...tabStyle, ...(categoryFilter === null ? activeTabStyle : {}) }}>全部</button>{categories.map((category) => <button key={category.id} onClick={() => setCategoryFilter(category.id)} onContextMenu={(event) => { event.preventDefault(); setCategoryMenu({ category, x: event.clientX, y: event.clientY }); }} title="右键可编辑或删除分类" style={{ ...tabStyle, ...(categoryFilter === category.id ? activeTabStyle : {}) }}>{category.name}</button>)}</div>
     {!loading && !error && <p aria-live="polite" style={{ margin: '0 0 10px', color: '#666' }}>当前显示 {shown.length} 个 skill</p>}
     {loading ? <p>正在扫描 skills…</p> : error ? <p role="alert" style={{ color: '#b00020' }}>{error} <button onClick={() => void refresh()}>重试</button></p> : <SkillTable skills={shown} categoryNames={categoryNames} onSaveDescription={saveDescription} onDelete={remove} />}
     {editingCategory !== undefined && <CategoryDialog category={editingCategory} skills={skills} onClose={() => setEditingCategory(undefined)} onSaved={() => { setEditingCategory(undefined); void refresh(); }} onError={setError} />}
+    {categoryMenu && <CategoryContextMenu state={categoryMenu} onClose={() => setCategoryMenu(null)} onEdit={() => { setEditingCategory(categoryMenu.category); setCategoryMenu(null); }} onDelete={() => { void removeCategory(categoryMenu.category); setCategoryMenu(null); }} />}
     {showBackToTop && <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="返回页面顶部" style={{ position: 'fixed', right: 24, bottom: 'max(56px, env(safe-area-inset-bottom))', zIndex: 20, border: 0, borderRadius: 999, padding: '10px 14px', background: '#2563eb', color: '#fff', boxShadow: '0 4px 14px rgba(0,0,0,.22)', cursor: 'pointer' }}>↑ 返回顶部</button>}
   </section>;
 }
 
-const tabStyle = { border: 0, padding: '6px 8px', background: 'transparent', cursor: 'pointer', borderRadius: 5 };
-const activeTabStyle = { background: '#eff6ff', color: '#1d4ed8', fontWeight: 700 };
-const iconButton = { border: 0, padding: '2px 4px', background: 'transparent', cursor: 'pointer', fontSize: 12 };
+const tabStyle = { border: '1px solid #bfdbfe', padding: '6px 10px', background: '#eff6ff', color: '#334155', cursor: 'pointer', borderRadius: 6, fontWeight: 600 };
+const activeTabStyle = { border: '1px solid #2563eb', background: '#2563eb', color: '#fff', boxShadow: '0 1px 3px rgba(37, 99, 235, .28)' };
+
+function CategoryContextMenu({ state, onClose, onEdit, onDelete }: { state: CategoryMenuState; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
+  useEffect(() => { const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); }; window.addEventListener('keydown', closeOnEscape); return () => window.removeEventListener('keydown', closeOnEscape); }, [onClose]);
+  return <div aria-label="分类操作菜单遮罩" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 35 }}><div role="menu" aria-label={`${state.category.name} 分类操作`} onClick={(event) => event.stopPropagation()} style={{ position: 'fixed', left: state.x, top: state.y, minWidth: 150, padding: 5, border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff', boxShadow: '0 10px 26px rgba(15,23,42,.2)' }}><button role="menuitem" onClick={onEdit} style={menuItemStyle}>编辑分类</button><button role="menuitem" onClick={onDelete} style={{ ...menuItemStyle, color: '#b00020' }}>删除分类</button></div></div>;
+}
+const menuItemStyle = { display: 'block', width: '100%', padding: '8px 10px', border: 0, borderRadius: 5, background: 'transparent', textAlign: 'left' as const, cursor: 'pointer' };
 
 function SkillTable({ skills, categoryNames, onSaveDescription, onDelete }: { skills: Skill[]; categoryNames: (skill: Skill) => SkillCategory[]; onSaveDescription: (skill: Skill, description: string) => Promise<boolean>; onDelete: (skill: Skill) => Promise<void> }) {
   if (skills.length === 0) return <p>没有找到匹配的 skill。</p>;

@@ -46,14 +46,39 @@ fn db(app: &AppHandle) -> Result<Connection, String> {
 }
 
 fn value_from_front_matter(contents: &str, key: &str) -> Option<String> {
-    let mut lines = contents.lines();
-    if lines.next()?.trim() != "---" { return None; }
-    for line in lines {
-        let line = line.trim();
-        if line == "---" { break; }
-        if let Some(value) = line.strip_prefix(&format!("{key}:")) {
-            return Some(value.trim().trim_matches(['\'', '"']).to_string());
+    let lines: Vec<&str> = contents.lines().collect();
+    if lines.first()?.trim() != "---" { return None; }
+    let prefix = format!("{key}:");
+    for (index, line) in lines.iter().enumerate().skip(1) {
+        let trimmed = line.trim();
+        if trimmed == "---" { break; }
+        let Some(value) = trimmed.strip_prefix(&prefix) else { continue; };
+        let value = value.trim();
+        if !matches!(value, ">" | ">-" | "|" | "|-") {
+            return Some(value.trim_matches(['\'', '"']).to_string());
         }
+
+        let mut block = vec![];
+        for next in lines.iter().skip(index + 1) {
+            if next.trim() == "---" { break; }
+            if !next.trim().is_empty() && !next.starts_with(char::is_whitespace) { break; }
+            block.push(*next);
+        }
+        let indent = block.iter().filter(|line| !line.trim().is_empty()).map(|line| line.len() - line.trim_start().len()).min().unwrap_or(0);
+        let block: Vec<&str> = block.iter().map(|line| line.get(indent..).unwrap_or("")).collect();
+        if value.starts_with('>') {
+            let mut output = String::new();
+            for line in block {
+                if line.trim().is_empty() {
+                    if !output.ends_with('\n') { output.push('\n'); }
+                } else {
+                    if !output.is_empty() && !output.ends_with('\n') { output.push(' '); }
+                    output.push_str(line.trim());
+                }
+            }
+            return Some(output.trim().to_string());
+        }
+        return Some(block.join("\n").trim().to_string());
     }
     None
 }
@@ -175,4 +200,8 @@ pub fn skills_delete_skill(app: AppHandle, path: String) -> Result<(), String> {
 mod tests {
     use super::*;
     #[test] fn front_matter_fields_are_read() { assert_eq!(value_from_front_matter("---\nname: hello\ndescription: 'world'\n---\n", "name"), Some("hello".into())); assert_eq!(value_from_front_matter("# no front matter", "name"), None); }
+    #[test] fn block_descriptions_are_decoded() {
+        assert_eq!(value_from_front_matter("---\ndescription: >-\n  first line\n  second line\n---\n", "description"), Some("first line second line".into()));
+        assert_eq!(value_from_front_matter("---\ndescription: |\n  first line\n  second line\n---\n", "description"), Some("first line\nsecond line".into()));
+    }
 }

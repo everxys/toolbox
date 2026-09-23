@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { deleteBook, importBooks, openBook, scanLibrary, setReadStatus, updateMetadata } from './api';
+import { deleteBook, importBooks, loadCachedLibrary, openBook, scanLibrary, setReadStatus, updateMetadata } from './api';
 import { buildLibraryTree, filterAndSortLibraryTree, type LibraryBook, type LibraryFilter, type LibraryNode, type SortField } from './tree';
 
 const initialFilter: LibraryFilter = { query: '', priority: null, read: null, type: null, hasDescription: false, sort: { field: 'title', direction: 'asc' } };
@@ -14,7 +14,7 @@ export default function LibraryTool() {
   const types = useMemo(() => [...new Set(books.map((book) => book.bookType).filter(Boolean))].sort(), [books]);
   const tree = useMemo(() => filterAndSortLibraryTree(buildLibraryTree(books), filter), [books, filter]);
   const refresh = async () => { setLoading(true); setError(''); try { setBooks(await scanLibrary()); } catch (reason) { setError(String(reason)); } finally { setLoading(false); } };
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { void loadCachedLibrary().then((cached) => { if (cached.length > 0) setBooks(cached); }).catch(() => undefined).finally(() => void refresh()); }, []);
   useEffect(() => { const update = () => setShowBackToTop(window.scrollY > 320); window.addEventListener('scroll', update, { passive: true }); update(); return () => window.removeEventListener('scroll', update); }, []);
   const changeSort = (field: SortField) => setFilter((value) => ({ ...value, sort: { field, direction: value.sort.field === field && value.sort.direction === 'asc' ? 'desc' : 'asc' } }));
   const save = async (book: LibraryBook, patch: Partial<LibraryBook>) => { const next = { ...book, ...patch }; setBooks((list) => list.map((item) => item.path === book.path ? next : item)); try { await updateMetadata(next); return true; } catch (reason) { setBooks((list) => list.map((item) => item.path === book.path ? book : item)); setError(String(reason)); return false; } };
@@ -31,7 +31,9 @@ export default function LibraryTool() {
       <label><input type="checkbox" checked={filter.hasDescription} onChange={(event) => setFilter({ ...filter, hasDescription: event.target.checked })} /> 已有描述</label>
       <button onClick={() => setShowImport(true)} style={button}>导入书籍</button><button onClick={() => void refresh()} disabled={loading} style={button}>↻ 刷新</button>
     </div>
-    {loading ? <p>正在扫描图书馆…</p> : error ? <p role="alert" style={{ color: '#b00020' }}>{error} <button onClick={() => void refresh()}>重试</button></p> : <LibraryTree node={tree} expanded={expanded} setExpanded={setExpanded} onSort={changeSort} onSave={save} onRead={toggleRead} onOpen={(book) => void openBook(book.path).catch((reason) => setError(String(reason)))} onDelete={remove} root />}
+    {loading && <p role="status" style={{ color: '#666' }}>{books.length > 0 ? '正在后台更新图书馆…' : '正在扫描图书馆…'}</p>}
+    {error && <p role="alert" style={{ color: '#b00020' }}>{error} <button onClick={() => void refresh()}>重试</button></p>}
+    {(!loading || books.length > 0) && <LibraryTree node={tree} expanded={expanded} setExpanded={setExpanded} onSort={changeSort} onSave={save} onRead={toggleRead} onOpen={(book) => void openBook(book.path).catch((reason) => setError(String(reason)))} onDelete={remove} root />}
     {showBackToTop && <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="返回页面顶部" style={{ position: 'fixed', right: 24, bottom: 'max(56px, env(safe-area-inset-bottom))', zIndex: 20, border: 0, borderRadius: 999, padding: '10px 14px', background: '#2563eb', color: '#fff', boxShadow: '0 4px 14px rgba(0,0,0,.22)', cursor: 'pointer' }}>↑ 返回顶部</button>}
     {showImport && <ImportDialog onClose={() => setShowImport(false)} onDone={() => void refresh()} />}</section>;
 }

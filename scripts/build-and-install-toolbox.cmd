@@ -17,7 +17,9 @@ if errorlevel 1 (
   exit /b 1
 )
 
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$config = Get-Content -Raw 'src-tauri\tauri.conf.json' ^| ConvertFrom-Json; Join-Path 'src-tauri\target\release\bundle\msi' ('Toolbox_{0}_x64_en-US.msi' -f $config.version)"`) do set "TOOLBOX_INSTALLER=%%I"
+rem The build has just completed, so its MSI is the newest installer in the bundle folder.
+set "TOOLBOX_INSTALLER="
+for /f "delims=" %%I in ('dir /b /a-d /o-d "src-tauri\target\release\bundle\msi\*.msi" 2^>nul') do if not defined TOOLBOX_INSTALLER set "TOOLBOX_INSTALLER=src-tauri\target\release\bundle\msi\%%I"
 
 if not exist "%TOOLBOX_INSTALLER%" (
   echo.

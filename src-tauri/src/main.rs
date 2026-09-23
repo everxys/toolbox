@@ -61,6 +61,7 @@ fn main() {
             ncm::ncm_player_url,
             ncm::ncm_download,
             library::library_scan,
+            library::library_cached,
             library::library_update_metadata,
             library::library_set_read_status,
             library::library_open_book,

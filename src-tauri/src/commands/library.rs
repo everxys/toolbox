@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{collections::{HashMap, HashSet}, ffi::OsStr, fs, path::{Path, PathBuf}, process::Command};
 use windows::{core::{Interface, PCWSTR}, Win32::{Storage::FileSystem::WIN32_FIND_DATAW, System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, STGM_READ}, UI::Shell::{IShellLinkW, ShellLink, SLGP_RAWPATH}}};
@@ -44,7 +44,10 @@ fn db(app: &AppHandle) -> Result<Connection, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let conn = Connection::open(dir.join("toolbox.db")).map_err(|e| e.to_string())?;
-    conn.execute("CREATE TABLE IF NOT EXISTS library_books (book_path TEXT PRIMARY KEY, priority INTEGER NOT NULL DEFAULT 0 CHECK(priority BETWEEN 0 AND 5), book_type TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)", []).map_err(|e| e.to_string())?;
+    conn.execute("CREATE TABLE IF NOT EXISTS library_books (book_path TEXT PRIMARY KEY, priority INTEGER NOT NULL DEFAULT 0 CHECK(priority BETWEEN 0 AND 5), book_type TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', relative_path TEXT NOT NULL DEFAULT '', title TEXT NOT NULL DEFAULT '', read_state INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)", []).map_err(|e| e.to_string())?;
+    // Existing Toolbox databases predate the cached scan fields. SQLite has no ADD COLUMN IF NOT EXISTS.
+    for sql in ["ALTER TABLE library_books ADD COLUMN relative_path TEXT NOT NULL DEFAULT ''", "ALTER TABLE library_books ADD COLUMN title TEXT NOT NULL DEFAULT ''", "ALTER TABLE library_books ADD COLUMN read_state INTEGER NOT NULL DEFAULT 0"] { let _ = conn.execute(sql, []); }
+    conn.execute("CREATE TABLE IF NOT EXISTS library_link_cache (link_path TEXT PRIMARY KEY, modified_at INTEGER NOT NULL, target_path TEXT NOT NULL)", []).map_err(|e| e.to_string())?;
     Ok(conn)
 }
 fn wide(path: &Path) -> Vec<u16> { path.as_os_str().to_string_lossy().encode_utf16().chain(Some(0)).collect() }
@@ -65,13 +68,25 @@ fn cleanup_empty_dirs(from: &Path, root: &Path) {
         if fs::read_dir(dir).ok().is_some_and(|mut entries| entries.next().is_none()) { let _ = fs::remove_dir(dir); current = dir.parent(); } else { break; }
     }
 }
-fn read_state_map(library: &Path) -> Result<HashMap<PathBuf, bool>, String> {
+fn modified_at(path: &Path) -> Result<i64, String> { path.metadata().map_err(|e| e.to_string())?.modified().map_err(|e| e.to_string())?.duration_since(std::time::UNIX_EPOCH).map_err(|e| e.to_string()).map(|value| value.as_millis() as i64) }
+fn cached_link_target(conn: &Connection, link: &Path, stamp: i64) -> Result<Option<PathBuf>, String> {
+    let key = link.to_string_lossy();
+    conn.query_row("SELECT target_path FROM library_link_cache WHERE link_path=?1 AND modified_at=?2", params![key.as_ref(), stamp], |row| row.get::<_, String>(0)).optional().map_err(|e| e.to_string()).map(|value| value.map(PathBuf::from))
+}
+fn read_state_map(library: &Path, conn: &Connection) -> Result<HashMap<PathBuf, bool>, String> {
     let mut states = HashMap::new();
     for (read, root) in [(false, state_root(false)?), (true, state_root(true)?)] {
         if !root.exists() { continue; }
         for entry in walk(&root)? {
             if entry.extension().is_some_and(|v| v.eq_ignore_ascii_case("lnk")) {
-                if let Ok(target) = shortcut_target(&entry).and_then(|p| normalized(&p)) {
+                let stamp = match modified_at(&entry) { Ok(value) => value, Err(_) => continue };
+                let target = match cached_link_target(conn, &entry, stamp)? {
+                    Some(value) => Ok(value),
+                    None => shortcut_target(&entry).and_then(|path| normalized(&path)).map(|target| {
+                        let _ = conn.execute("INSERT INTO library_link_cache(link_path,modified_at,target_path) VALUES (?1,?2,?3) ON CONFLICT(link_path) DO UPDATE SET modified_at=excluded.modified_at,target_path=excluded.target_path", params![entry.to_string_lossy(), stamp, target.to_string_lossy()]); target
+                    }),
+                };
+                if let Ok(target) = target {
                     if target.starts_with(library) {
                         if let Some(existing) = states.get(&target) {
                             if *existing != read { return Err(format!("同一本书同时存在于 read 和 unread：{}", target.display())); }
@@ -104,7 +119,7 @@ fn walk(root: &Path) -> Result<Vec<PathBuf>, String> {
 #[tauri::command]
 pub fn library_scan(app: AppHandle) -> Result<Vec<LibraryBook>, String> {
     let library = normalized(&library_root()?).map_err(|_| "找不到 Library 目录，请确认 ~/important/books/Library 存在".to_string())?;
-    let states = read_state_map(&library)?; let conn = db(&app)?; let files = walk(&library)?;
+    let conn = db(&app)?; let states = read_state_map(&library, &conn)?; let files = walk(&library)?;
     let mut current = HashSet::new(); let mut books = vec![];
     for file in files.into_iter().filter(|path| path.is_file()) {
         let book = normalized(&file)?;
@@ -112,13 +127,20 @@ pub fn library_scan(app: AppHandle) -> Result<Vec<LibraryBook>, String> {
         // because later open/delete commands must remain confined to the book root.
         if !book.starts_with(&library) { continue; }
         let key = book.to_string_lossy().to_string(); current.insert(key.clone());
-        conn.execute("INSERT OR IGNORE INTO library_books (book_path) VALUES (?1)", params![key]).map_err(|e| e.to_string())?;
+        let relative_path = book.strip_prefix(&library).unwrap().to_string_lossy().replace('\\', "/"); let title = title_from_path(&book); let read = states.get(&book).copied().unwrap_or(false);
+        conn.execute("INSERT INTO library_books (book_path,relative_path,title,read_state) VALUES (?1,?2,?3,?4) ON CONFLICT(book_path) DO UPDATE SET relative_path=excluded.relative_path,title=excluded.title,read_state=excluded.read_state", params![key, relative_path, title, read as i64]).map_err(|e| e.to_string())?;
         let (priority, book_type, description) = conn.query_row("SELECT priority, book_type, description FROM library_books WHERE book_path=?1", params![key], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).map_err(|e| e.to_string())?;
-        books.push(LibraryBook { relative_path: book.strip_prefix(&library).unwrap().to_string_lossy().replace('\\', "/"), title: title_from_path(&book), path: key.clone(), priority, read: states.get(&book).copied().unwrap_or(false), book_type, description });
+        books.push(LibraryBook { relative_path, title, path: key.clone(), priority, read, book_type, description });
     }
     let mut stmt = conn.prepare("SELECT book_path FROM library_books").map_err(|e| e.to_string())?;
     let stale = stmt.query_map([], |row| row.get::<_, String>(0)).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
     for key in stale.into_iter().filter(|key| !current.contains(key)) { conn.execute("DELETE FROM library_books WHERE book_path=?1", params![key]).map_err(|e| e.to_string())?; }
+    Ok(books)
+}
+#[tauri::command]
+pub fn library_cached(app: AppHandle) -> Result<Vec<LibraryBook>, String> {
+    let conn = db(&app)?; let mut statement = conn.prepare("SELECT book_path,relative_path,title,priority,read_state,book_type,description FROM library_books WHERE relative_path<>'' ORDER BY relative_path").map_err(|e| e.to_string())?;
+    let books = statement.query_map([], |row| Ok(LibraryBook { path: row.get(0)?, relative_path: row.get(1)?, title: row.get(2)?, priority: row.get(3)?, read: row.get::<_, i64>(4)? != 0, book_type: row.get(5)?, description: row.get(6)? })).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
     Ok(books)
 }
 #[tauri::command]

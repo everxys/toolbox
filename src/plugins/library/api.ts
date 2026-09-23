@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { LibraryBook } from './tree';
 
 export const scanLibrary = () => invoke<LibraryBook[]>('library_scan');
+export const loadCachedLibrary = () => invoke<LibraryBook[]>('library_cached');
 export const updateMetadata = (update: Pick<LibraryBook, 'path' | 'priority' | 'bookType' | 'description'>) =>
   invoke<void>('library_update_metadata', { update });
 export const setReadStatus = (path: string, read: boolean) => invoke<void>('library_set_read_status', { path, read });
