@@ -7,5 +7,6 @@ export const updateMetadata = (update: Pick<LibraryBook, 'path' | 'priority' | '
   invoke<void>('library_update_metadata', { update });
 export const setReadStatus = (path: string, read: boolean) => invoke<void>('library_set_read_status', { path, read });
 export const openBook = (path: string) => invoke<void>('library_open_book', { path });
+export const renameBook = (path: string, title: string) => invoke<void>('library_rename_book', { path, title });
 export const deleteBook = (path: string) => invoke<void>('library_delete_book', { path });
 export const importBooks = (paths: string[], read: boolean) => invoke<Array<{ source: string; status: string; message: string }>>('library_import', { paths, read });

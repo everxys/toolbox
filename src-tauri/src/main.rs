@@ -65,6 +65,7 @@ fn main() {
             library::library_update_metadata,
             library::library_set_read_status,
             library::library_open_book,
+            library::library_rename_book,
             library::library_delete_book,
             library::library_import,
             skills::skills_scan,

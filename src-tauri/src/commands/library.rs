@@ -40,6 +40,14 @@ fn validate_book_path(path: &str) -> Result<(PathBuf, PathBuf), String> {
     Ok((root, book))
 }
 fn title_from_path(path: &Path) -> String { path.file_stem().and_then(OsStr::to_str).unwrap_or_default().to_string() }
+fn renamed_book_path(book: &Path, title: &str) -> Result<PathBuf, String> {
+    let title = title.trim();
+    if title.is_empty() || title == "." || title == ".." { return Err("图书名称不能为空".into()); }
+    if title.ends_with('.') || title.ends_with(' ') || title.chars().any(|ch| matches!(ch, '\\' | '/' | ':' | '*' | '?' | '"' | '<' | '>' | '|')) { return Err("图书名称包含 Windows 不支持的字符，或以句点、空格结尾".into()); }
+    let extension = book.extension().and_then(OsStr::to_str).filter(|value| !value.is_empty());
+    let file_name = extension.map(|value| format!("{title}.{value}")).unwrap_or_else(|| title.to_string());
+    Ok(book.parent().ok_or("图书缺少父目录")?.join(file_name))
+}
 fn db(app: &AppHandle) -> Result<Connection, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -168,6 +176,32 @@ pub fn library_set_read_status(path: String, read: bool) -> Result<(), String> {
 #[tauri::command]
 pub fn library_open_book(path: String) -> Result<(), String> { let (_, book) = validate_book_path(&path)?; Command::new("cmd").args(["/C", "start", "", &book.to_string_lossy()]).spawn().map_err(|e| format!("无法打开图书：{e}"))?; Ok(()) }
 #[tauri::command]
+pub fn library_rename_book(app: AppHandle, path: String, title: String) -> Result<(), String> {
+    let (library, book) = validate_book_path(&path)?;
+    let destination = renamed_book_path(&book, &title)?;
+    if destination == book { return Ok(()); }
+    if destination.exists() { return Err(format!("同一目录下已存在同名图书：{}", destination.display())); }
+
+    let mut state_links = vec![];
+    for root in [state_root(false)?, state_root(true)?] {
+        let links = links_pointing_to(&root, &book)?;
+        let target_link = link_path(&root, &library, &destination)?;
+        if target_link.exists() && !links.iter().any(|link| link == &target_link) { return Err(format!("对应阅读状态目录中已存在同名快捷方式：{}", target_link.display())); }
+        state_links.push((root, target_link, links));
+    }
+
+    fs::rename(&book, &destination).map_err(|e| format!("无法重命名 Library 中的图书：{e}"))?;
+    let destination = normalized(&destination)?;
+    for (root, target_link, links) in state_links {
+        if links.is_empty() { continue; }
+        for link in links { fs::remove_file(&link).map_err(|e| format!("无法更新阅读状态快捷方式：{e}"))?; cleanup_empty_dirs(&link, &root); }
+        create_shortcut(&target_link, &destination)?;
+    }
+    let relative_path = destination.strip_prefix(&library).map_err(|_| "重命名后的图书不在 Library 中")?.to_string_lossy().replace('\\', "/");
+    db(&app)?.execute("UPDATE library_books SET book_path=?1, relative_path=?2, title=?3, updated_at=CURRENT_TIMESTAMP WHERE book_path=?4", params![destination.to_string_lossy(), relative_path, title_from_path(&destination), book.to_string_lossy()]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+#[tauri::command]
 pub fn library_delete_book(app: AppHandle, path: String) -> Result<(), String> {
     let (_library, book) = validate_book_path(&path)?;
     for root in [state_root(false)?, state_root(true)?] { for link in links_pointing_to(&root, &book)? { fs::remove_file(&link).map_err(|e| format!("无法删除快捷方式：{e}"))?; cleanup_empty_dirs(&link, &root); } }
@@ -195,5 +229,9 @@ pub fn library_import(paths: Vec<String>, read: bool) -> Result<Vec<ImportResult
 
 #[cfg(test)] mod tests { use super::*;
     #[test] fn title_removes_extension() { assert_eq!(title_from_path(Path::new("C:/书/量子力学.pdf")), "量子力学"); }
+    #[test] fn rename_preserves_extension_and_rejects_invalid_names() {
+        assert_eq!(renamed_book_path(Path::new("C:/Library/旧书.epub"), "新书").unwrap(), PathBuf::from("C:/Library/新书.epub"));
+        assert!(renamed_book_path(Path::new("C:/Library/旧书.epub"), "错误/名称").is_err());
+    }
     #[test] fn link_path_mirrors_library_tree() { assert_eq!(link_path(Path::new("C:/read"), Path::new("C:/Library"), Path::new("C:/Library/灌篮高手/1.pdf")).unwrap(), PathBuf::from("C:/read/灌篮高手/1.lnk")); }
 }

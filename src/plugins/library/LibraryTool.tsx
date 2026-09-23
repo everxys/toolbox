@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { deleteBook, importBooks, loadCachedLibrary, openBook, scanLibrary, setReadStatus, updateMetadata } from './api';
+import { deleteBook, importBooks, loadCachedLibrary, openBook, renameBook, scanLibrary, setReadStatus, updateMetadata } from './api';
 import { bookFormat, buildLibraryTree, filterAndSortLibraryTree, type LibraryBook, type LibraryFilter, type LibraryNode, type SortField } from './tree';
 
 const initialFilter: LibraryFilter = { query: '', priority: null, read: null, type: null, format: null, hasDescription: false, sort: { field: 'title', direction: 'asc' } };
@@ -11,6 +11,8 @@ export default function LibraryTool() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set()); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<LibraryBook | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LibraryBook | null>(null);
   const types = useMemo(() => [...new Set(books.map((book) => book.bookType).filter(Boolean))].sort(), [books]);
   const formats = useMemo(() => [...new Set(books.map(bookFormat))].sort((a, b) => a.localeCompare(b, 'en')), [books]);
   const tree = useMemo(() => filterAndSortLibraryTree(buildLibraryTree(books), filter), [books, filter]);
@@ -24,8 +26,10 @@ export default function LibraryTool() {
   });
   const save = async (book: LibraryBook, patch: Partial<LibraryBook>) => { const next = { ...book, ...patch }; setBooks((list) => list.map((item) => item.path === book.path ? next : item)); try { await updateMetadata(next); return true; } catch (reason) { setBooks((list) => list.map((item) => item.path === book.path ? book : item)); setError(String(reason)); return false; } };
   const toggleRead = async (book: LibraryBook) => { if (!confirm(`确定将《${book.title}》标记为${book.read ? '未读' : '已读'}吗？快捷方式将移动到对应目录。`)) return; try { await setReadStatus(book.path, !book.read); await refresh(); } catch (reason) { setError(String(reason)); } };
-  const remove = async (book: LibraryBook) => { if (!confirm(`确定删除《${book.title}》吗？这会永久删除 Library 原书、read/unread 快捷方式及其元数据。`)) return; try { await deleteBook(book.path); await refresh(); } catch (reason) { setError(String(reason)); } };
-  return <section style={{ padding: 16 }}>
+  const rename = async (book: LibraryBook, title: string) => { try { await renameBook(book.path, title); } catch (reason) { setError(String(reason)); } finally { setRenameTarget(null); await refresh(); } };
+  const remove = async (book: LibraryBook) => { try { await deleteBook(book.path); } catch (reason) { setError(String(reason)); } finally { setDeleteTarget(null); await refresh(); } };
+  return <>
+  <section style={{ padding: 16 }}>
     <h2 style={{ marginTop: 0 }}>📚 图书馆</h2>
     <p style={{ color: '#666' }}>每次进入都会扫描 <code>~/important/books/Library</code>，阅读状态由 read/unread 快捷方式决定。</p>
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -39,9 +43,12 @@ export default function LibraryTool() {
     </div>
     {loading && <p role="status" style={{ color: '#666' }}>{books.length > 0 ? '正在后台更新图书馆…' : '正在扫描图书馆…'}</p>}
     {error && <p role="alert" style={{ color: '#b00020' }}>{error} <button onClick={() => void refresh()}>重试</button></p>}
-    {(!loading || books.length > 0) && <LibraryTree node={tree} sort={filter.sort} expanded={expanded} setExpanded={setExpanded} onSort={changeSort} onSave={save} onRead={toggleRead} onOpen={(book) => void openBook(book.path).catch((reason) => setError(String(reason)))} onDelete={remove} root />}
+    {(!loading || books.length > 0) && <LibraryTree node={tree} sort={filter.sort} expanded={expanded} setExpanded={setExpanded} onSort={changeSort} onSave={save} onRead={toggleRead} onOpen={(book) => void openBook(book.path).catch((reason) => setError(String(reason)))} onRename={setRenameTarget} onDelete={setDeleteTarget} root />}
     {showBackToTop && <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="返回页面顶部" style={{ position: 'fixed', right: 24, bottom: 'max(56px, env(safe-area-inset-bottom))', zIndex: 20, border: 0, borderRadius: 999, padding: '10px 14px', background: '#2563eb', color: '#fff', boxShadow: '0 4px 14px rgba(0,0,0,.22)', cursor: 'pointer' }}>↑ 返回顶部</button>}
-    {showImport && <ImportDialog onClose={() => setShowImport(false)} onDone={() => void refresh()} />}</section>;
+    {showImport && <ImportDialog onClose={() => setShowImport(false)} onDone={() => void refresh()} />}</section>
+    {renameTarget && <RenameDialog book={renameTarget} onClose={() => setRenameTarget(null)} onConfirm={(title) => rename(renameTarget, title)} />}
+    {deleteTarget && <DeleteDialog book={deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => remove(deleteTarget)} />}
+  </>;
 }
 
 function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
@@ -51,12 +58,27 @@ function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone: () => 
 }
 function DropZone({ read, active }: { read: boolean; active: boolean }) { return <div data-import-read={String(read)} style={{ minHeight: 170, border: `2px dashed ${active ? '#2563eb' : '#aaa'}`, borderRadius: 10, display: 'grid', placeItems: 'center', padding: 16, background: active ? '#eff6ff' : '#fafafa', textAlign: 'center' }}><div><strong>{read ? '✓ 已读' : '○ 未读'}</strong><p>把书籍文件或文件夹拖到这里</p></div></div>; }
 
-function LibraryTree({ node, sort, expanded, setExpanded, onSort, onSave, onRead, onOpen, onDelete, root = false }: { node: LibraryNode; sort: LibraryFilter['sort']; expanded: Set<string>; setExpanded: (value: Set<string>) => void; onSort: (field: SortField) => void; onSave: (book: LibraryBook, patch: Partial<LibraryBook>) => Promise<boolean>; onRead: (book: LibraryBook) => Promise<void>; onOpen: (book: LibraryBook) => void; onDelete: (book: LibraryBook) => Promise<void>; root?: boolean }) {
-  const gridColumns = 'minmax(180px,2fr) 90px 115px 70px 130px minmax(200px,2fr) 130px';
-  if (root) return <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}><div style={{ overflowX: 'auto' }}><div style={{ minWidth: 1000 }}><div style={{ position: 'sticky', top: 0, zIndex: 5, display: 'grid', gridTemplateColumns: gridColumns, gap: 8, padding: 10, fontWeight: 700, background: '#f7f7f7', borderBottom: '1px solid #d5d5d5', boxShadow: '0 2px 5px rgba(0,0,0,.08)' }}><SortHeader field="title" label="标题" sort={sort} onSort={onSort} /><span>格式</span><SortHeader field="priority" label="优先级" sort={sort} onSort={onSort} /><SortHeader field="read" label="已读" sort={sort} onSort={onSort} /><SortHeader field="type" label="分类" sort={sort} onSort={onSort} /><SortHeader field="description" label="描述" sort={sort} onSort={onSort} /><span>操作</span></div>{node.children.map((child) => <LibraryTree key={child.kind === 'book' ? child.book!.path : child.name} {...{ node: child, sort, expanded, setExpanded, onSort, onSave, onRead, onOpen, onDelete }} />)}</div></div></div>;
-  if (node.kind === 'folder') { const id = node.key; const open = expanded.has(id); return <div><button onClick={() => { const next = new Set(expanded); open ? next.delete(id) : next.add(id); setExpanded(next); }} style={{ ...button, width: '100%', padding: '8px 10px', textAlign: 'left', border: 0, background: '#fafafa', fontWeight: 700 }}>📁 {open ? '▾' : '▸'} {node.name}</button>{open && <div style={{ paddingLeft: 18 }}>{node.children.map((child) => <LibraryTree key={child.key} {...{ node: child, sort, expanded, setExpanded, onSort, onSave, onRead, onOpen, onDelete }} />)}</div>}</div>; }
-  const book = node.book!; return <div style={{ display: 'grid', gridTemplateColumns: gridColumns, gap: 8, alignItems: 'center', padding: 8, borderTop: '1px solid #eee' }}><span title={book.path}>{book.title}</span><span aria-label={`${book.title} 格式`} style={{ color: '#475569', fontWeight: 600 }}>{bookFormat(book)}</span><RatingInput book={book} onSave={onSave} /><ReadSwitch book={book} onRead={onRead} /><input aria-label={`${book.title} 分类`} value={book.bookType} onChange={(event) => void onSave(book, { bookType: event.target.value })} /><DescriptionField book={book} onSave={onSave} /><span style={{ display: 'flex', gap: 6 }}><button onClick={() => onOpen(book)} style={button}>打开</button><button onClick={() => void onDelete(book)} style={{ ...button, color: '#b00020' }}>删除</button></span></div>;
+function LibraryTree({ node, sort, expanded, setExpanded, onSort, onSave, onRead, onOpen, onRename, onDelete, root = false }: { node: LibraryNode; sort: LibraryFilter['sort']; expanded: Set<string>; setExpanded: (value: Set<string>) => void; onSort: (field: SortField) => void; onSave: (book: LibraryBook, patch: Partial<LibraryBook>) => Promise<boolean>; onRead: (book: LibraryBook) => Promise<void>; onOpen: (book: LibraryBook) => void; onRename: (book: LibraryBook) => void; onDelete: (book: LibraryBook) => void; root?: boolean }) {
+  const gridColumns = 'minmax(180px,2fr) 90px 115px 70px 130px minmax(200px,2fr) 180px';
+  if (root) return <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}><div style={{ overflowX: 'auto' }}><div style={{ minWidth: 1050 }}><div style={{ position: 'sticky', top: 0, zIndex: 5, display: 'grid', gridTemplateColumns: gridColumns, gap: 8, padding: 10, fontWeight: 700, background: '#f7f7f7', borderBottom: '1px solid #d5d5d5', boxShadow: '0 2px 5px rgba(0,0,0,.08)' }}><SortHeader field="title" label="标题" sort={sort} onSort={onSort} /><span>格式</span><SortHeader field="priority" label="优先级" sort={sort} onSort={onSort} /><SortHeader field="read" label="已读" sort={sort} onSort={onSort} /><SortHeader field="type" label="分类" sort={sort} onSort={onSort} /><SortHeader field="description" label="描述" sort={sort} onSort={onSort} /><span>操作</span></div>{node.children.map((child) => <LibraryTree key={child.kind === 'book' ? child.book!.path : child.name} {...{ node: child, sort, expanded, setExpanded, onSort, onSave, onRead, onOpen, onRename, onDelete }} />)}</div></div></div>;
+  if (node.kind === 'folder') { const id = node.key; const open = expanded.has(id); return <div><button onClick={() => { const next = new Set(expanded); open ? next.delete(id) : next.add(id); setExpanded(next); }} style={{ ...button, width: '100%', padding: '8px 10px', textAlign: 'left', border: 0, background: '#fafafa', fontWeight: 700 }}>📁 {open ? '▾' : '▸'} {node.name}</button>{open && <div style={{ paddingLeft: 18 }}>{node.children.map((child) => <LibraryTree key={child.key} {...{ node: child, sort, expanded, setExpanded, onSort, onSave, onRead, onOpen, onRename, onDelete }} />)}</div>}</div>; }
+  const book = node.book!; return <div style={{ display: 'grid', gridTemplateColumns: gridColumns, gap: 8, alignItems: 'center', padding: 8, borderTop: '1px solid #eee' }}><span title={book.path}>{book.title}</span><span aria-label={`${book.title} 格式`} style={{ color: '#475569', fontWeight: 600 }}>{bookFormat(book)}</span><RatingInput book={book} onSave={onSave} /><ReadSwitch book={book} onRead={onRead} /><input aria-label={`${book.title} 分类`} value={book.bookType} onChange={(event) => void onSave(book, { bookType: event.target.value })} /><DescriptionField book={book} onSave={onSave} /><span style={{ display: 'flex', gap: 6 }}><button onClick={() => onRename(book)} style={button}>改名</button><button onClick={() => onOpen(book)} style={button}>打开</button><button onClick={() => onDelete(book)} style={{ ...button, color: '#b00020' }}>删除</button></span></div>;
 }
+
+function RenameDialog({ book, onClose, onConfirm }: { book: LibraryBook; onClose: () => void; onConfirm: (title: string) => Promise<void> }) {
+  const [title, setTitle] = useState(book.title); const [saving, setSaving] = useState(false); const format = bookFormat(book); const suffix = format === '无扩展名' ? '该文件没有扩展名。' : `将保留 .${format} 扩展名。`;
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); const next = title.trim(); if (!next || next === book.title) return; setSaving(true); await onConfirm(next); setSaving(false); };
+  return <div role="dialog" aria-modal="true" aria-label="修改图书名称" style={dialogBackdrop} onMouseDown={onClose}><form onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} style={dialogPanel}><h3 style={{ marginTop: 0 }}>修改图书名称</h3><p style={{ color: '#666' }}>只修改名称，{suffix}</p><input aria-label="新图书名称" autoFocus value={title} onChange={(event) => setTitle(event.target.value)} style={{ width: '100%', boxSizing: 'border-box' }} /><div style={dialogActions}><button type="button" onClick={onClose} disabled={saving}>取消</button><button type="submit" disabled={saving || !title.trim() || title.trim() === book.title}>{saving ? '修改中…' : '确认修改'}</button></div></form></div>;
+}
+
+function DeleteDialog({ book, onClose, onConfirm }: { book: LibraryBook; onClose: () => void; onConfirm: () => Promise<void> }) {
+  const [deleting, setDeleting] = useState(false); const submit = async () => { setDeleting(true); await onConfirm(); setDeleting(false); };
+  return <div role="dialog" aria-modal="true" aria-label="确认删除图书" style={dialogBackdrop} onMouseDown={onClose}><div onMouseDown={(event) => event.stopPropagation()} style={dialogPanel}><h3 style={{ marginTop: 0 }}>删除图书？</h3><p>确定删除《{book.title}》吗？这会永久删除 Library 原书、read/unread 快捷方式及其元数据。</p><div style={dialogActions}><button onClick={onClose} disabled={deleting}>取消</button><button onClick={() => void submit()} disabled={deleting} style={{ color: '#b00020' }}>{deleting ? '删除中…' : '删除'}</button></div></div></div>;
+}
+
+const dialogBackdrop = { position: 'fixed' as const, inset: 0, zIndex: 30, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(0,0,0,.35)' };
+const dialogPanel = { width: 'min(480px, 100%)', boxSizing: 'border-box' as const, background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 16px 48px rgba(0,0,0,.22)' };
+const dialogActions = { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 };
 
 function SortHeader({ field, label, sort, onSort }: { field: SortField; label: string; sort: LibraryFilter['sort']; onSort: (field: SortField) => void }) {
   const rule = sort?.field === field ? sort : undefined;
