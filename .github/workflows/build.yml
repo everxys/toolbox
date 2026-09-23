@@ -10,15 +10,7 @@ jobs:
   build:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            args: --bundles nsis
-          - os: ubuntu-22.04
-            args: ''
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -27,9 +19,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20', cache: 'npm' }
       - uses: dtolnay/rust-toolchain@stable
-      - name: install Linux deps
-        if: matrix.os == 'ubuntu-22.04'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: npm ci
       - uses: tauri-apps/tauri-action@v0
         env:
@@ -42,7 +31,7 @@ jobs:
           releaseBody: 'See assets to download and install. Updater will check https://github.com/everxys/toolbox/releases/latest/download/latest.json'
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: --bundles nsis
 
   publish:
     permissions:
