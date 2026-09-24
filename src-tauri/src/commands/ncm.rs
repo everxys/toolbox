@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use rusqlite::{params, Connection};
+use super::storage;
 
 // 复用 open-orpheus 的 cookie 思想：deviceId / appver 注入
 // 这里简化：直接用 reqwest 带上 MUSIC_U
@@ -45,9 +46,7 @@ fn login_cookie_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 fn download_db(app: &AppHandle) -> Result<Connection, String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let connection = Connection::open(dir.join("toolbox.db")).map_err(|e| e.to_string())?;
+    let connection = storage::open_database(app)?;
     connection.execute(
         "CREATE TABLE IF NOT EXISTS ncm_downloads (song_id INTEGER PRIMARY KEY, file_path TEXT, downloaded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
         [],

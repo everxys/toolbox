@@ -2,7 +2,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{collections::{HashMap, HashSet}, ffi::OsStr, fs, path::{Path, PathBuf}, process::Command};
 use windows::{core::{Interface, PCWSTR}, Win32::{Storage::FileSystem::WIN32_FIND_DATAW, System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, STGM_READ}, UI::Shell::{IShellLinkW, ShellLink, SLGP_RAWPATH}}};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
+use super::storage;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -49,9 +50,7 @@ fn renamed_book_path(book: &Path, title: &str) -> Result<PathBuf, String> {
     Ok(book.parent().ok_or("图书缺少父目录")?.join(file_name))
 }
 fn db(app: &AppHandle) -> Result<Connection, String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let conn = Connection::open(dir.join("toolbox.db")).map_err(|e| e.to_string())?;
+    let conn = storage::open_database(app)?;
     conn.execute("CREATE TABLE IF NOT EXISTS library_books (book_path TEXT PRIMARY KEY, priority INTEGER NOT NULL DEFAULT 0 CHECK(priority BETWEEN 0 AND 5), book_type TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', relative_path TEXT NOT NULL DEFAULT '', title TEXT NOT NULL DEFAULT '', read_state INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)", []).map_err(|e| e.to_string())?;
     // Existing Toolbox databases predate the cached scan fields. SQLite has no ADD COLUMN IF NOT EXISTS.
     for sql in ["ALTER TABLE library_books ADD COLUMN relative_path TEXT NOT NULL DEFAULT ''", "ALTER TABLE library_books ADD COLUMN title TEXT NOT NULL DEFAULT ''", "ALTER TABLE library_books ADD COLUMN read_state INTEGER NOT NULL DEFAULT 0"] { let _ = conn.execute(sql, []); }

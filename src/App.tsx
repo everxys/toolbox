@@ -9,12 +9,14 @@ import { loadLastNcmPlaylistUrl, saveLastNcmPlaylistUrl, type ToolId } from './t
 import LibraryTool from './plugins/library/LibraryTool';
 import SkillManagerTool from './plugins/skills/SkillManagerTool';
 import UpdaterButton from './toolbox/UpdaterButton';
+import SettingsPage from './toolbox/SettingsPage';
 
-function AppHeader() {
+function AppHeader({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
     <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-      <h1>Toolbox 合集 - 跨平台 (Tauri)</h1>
+      <h1>Toolbox</h1>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={onOpenSettings}>设置</button>
         <UpdaterButton />
       </div>
     </header>
@@ -41,7 +43,7 @@ function NcmToolHeader({ onShowLogin }: { onShowLogin: () => void }) {
 }
 
 function AppShell() {
-  const [view, setView] = useState<'home' | 'ncm' | 'library' | 'skills'>('home');
+  const [view, setView] = useState<'home' | 'ncm' | 'library' | 'skills' | 'settings'>('home');
   const [showLogin, setShowLogin] = useState(false);
   const [showQuickDownload, setShowQuickDownload] = useState(false);
   const [quickDownloadInitialUrl, setQuickDownloadInitialUrl] = useState('');
@@ -60,7 +62,7 @@ function AppShell() {
   };
   return (
     <div style={{ fontFamily: 'sans-serif', width: 'calc(100% - 32px)', maxWidth: view === 'library' ? 1280 : 900, margin: '0 auto' }}>
-      <AppHeader />
+      <AppHeader onOpenSettings={() => setView('settings')} />
       {showLogin && (
         <div
           role="dialog"
@@ -77,7 +79,11 @@ function AppShell() {
           </div>
         </div>
       )}
-      {view === 'home' ? (
+      {view === 'settings' ? (
+        <ToolPageShell onBackHome={() => setView('home')}>
+          <SettingsPage />
+        </ToolPageShell>
+      ) : view === 'home' ? (
         <HomePage onOpenTool={(id) => setView(id as any)} onQuickAction={handleQuickAction} />
       ) : view === 'ncm' ? (
         <ToolPageShell onBackHome={() => setView('home')}>

@@ -1,7 +1,8 @@
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::{collections::{HashMap, HashSet}, fs, path::{Path, PathBuf}};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
+use super::storage;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,9 +35,7 @@ fn skills_root() -> Result<PathBuf, String> {
 fn normalized(path: &Path) -> Result<PathBuf, String> { fs::canonicalize(path).map_err(|e| format!("无法解析路径 {}：{e}", path.display())) }
 
 fn db(app: &AppHandle) -> Result<Connection, String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let conn = Connection::open(dir.join("toolbox.db")).map_err(|e| e.to_string())?;
+    let conn = storage::open_database(app)?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS skill_metadata (skill_path TEXT PRIMARY KEY, custom_description TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
          CREATE TABLE IF NOT EXISTS skill_categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);

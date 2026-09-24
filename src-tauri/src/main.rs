@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod commands;
-use commands::{library, ncm, skills};
+use commands::{library, ncm, skills, storage};
 use tauri::Manager;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -45,6 +45,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(ncm::LoginState::default())
         .invoke_handler(tauri::generate_handler![
             ncm::ncm_qr_create,
@@ -74,6 +75,9 @@ fn main() {
             skills::skills_save_category,
             skills::skills_delete_category,
             skills::skills_delete_skill,
+            storage::database_location,
+            storage::database_migrate,
+            storage::database_use_existing,
         ])
         .setup(|app| {
             use tauri::{
