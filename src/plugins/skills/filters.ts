@@ -1,4 +1,4 @@
-import type { Skill } from './api';
+import type { Skill } from './types';
 
 export const matchesSkillSearch = (skill: Skill, query: string) => {
   const needle = query.trim().toLocaleLowerCase();

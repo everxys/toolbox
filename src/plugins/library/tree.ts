@@ -1,31 +1,5 @@
-export interface LibraryBook {
-  path: string;
-  relativePath: string;
-  title: string;
-  priority: number;
-  read: boolean;
-  bookType: string;
-  description: string;
-}
-
-export interface LibraryNode {
-  kind: 'folder' | 'book';
-  name: string;
-  key: string;
-  children: LibraryNode[];
-  book?: LibraryBook;
-}
-
-export type SortField = 'title' | 'priority' | 'read' | 'type' | 'description';
-export interface LibraryFilter {
-  query: string;
-  priority: number | null;
-  read: boolean | null;
-  type: string | null;
-  format: string | null;
-  hasDescription: boolean;
-  sort: { field: SortField; direction: 'asc' | 'desc' } | null;
-}
+import type { LibraryBook, LibraryFilter, LibraryNode, SortField } from './types';
+export type { LibraryBook, LibraryFilter, LibraryNode, SortField } from './types';
 
 /** Returns the file format shown to the user, based on the book's real filename. */
 export function bookFormat(book: Pick<LibraryBook, 'relativePath'>): string {

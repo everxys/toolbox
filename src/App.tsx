@@ -1,49 +1,19 @@
 import { useState } from 'react';
-import QRLogin from './plugins/ncm/QRLogin';
-import PlaylistDownloader from './plugins/ncm/PlaylistDownloader';
+import NcmLoginDialog from './plugins/ncm/NcmLoginDialog';
+import NcmTool from './plugins/ncm/NcmTool';
 import NcmQuickDownloadDialog from './plugins/ncm/NcmQuickDownloadDialog';
 import { NcmAuthProvider, useNcmAuth } from './plugins/ncm/NcmAuthContext';
 import HomePage from './toolbox/HomePage';
 import ToolPageShell from './toolbox/ToolPageShell';
-import { loadLastNcmPlaylistUrl, saveLastNcmPlaylistUrl, type ToolId } from './toolbox/tools';
+import { type ToolId } from './toolbox/tools';
+import { loadLastNcmPlaylistUrl, saveLastNcmPlaylistUrl } from './plugins/ncm/preferences';
 import LibraryTool from './plugins/library/LibraryTool';
 import SkillManagerTool from './plugins/skills/SkillManagerTool';
-import UpdaterButton from './toolbox/UpdaterButton';
 import SettingsPage from './toolbox/SettingsPage';
 
-function AppHeader({ onOpenSettings }: { onOpenSettings: () => void }) {
-  return (
-    <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-      <h1>Toolbox</h1>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onOpenSettings}>设置</button>
-        <UpdaterButton />
-      </div>
-    </header>
-  );
-}
-
-function NcmToolHeader({ onShowLogin }: { onShowLogin: () => void }) {
-  const { nickname, logged, logout } = useNcmAuth();
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 16px', borderBottom: '1px solid #eee', background: '#fafafa' }}>
-      <span style={{ fontSize: 13, color: '#666' }}>网易云歌单 — 需登录后下载</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {logged ? (
-          <>
-            <span title="网易云音乐登录账号" style={{ fontSize: 13 }}>👤 {nickname}</span>
-            <button onClick={() => void logout()} style={{ fontSize: 13 }}>退出登录</button>
-          </>
-        ) : (
-          <button onClick={onShowLogin} style={{ fontSize: 13 }}>登录网易云</button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function AppShell() {
-  const [view, setView] = useState<'home' | 'ncm' | 'library' | 'skills' | 'settings'>('home');
+  type AppView = 'home' | 'settings' | ToolId;
+  const [view, setView] = useState<AppView>('home');
   const [showLogin, setShowLogin] = useState(false);
   const [showQuickDownload, setShowQuickDownload] = useState(false);
   const [quickDownloadInitialUrl, setQuickDownloadInitialUrl] = useState('');
@@ -62,50 +32,23 @@ function AppShell() {
   };
   return (
     <div style={{ fontFamily: 'sans-serif', width: 'calc(100% - 32px)', maxWidth: view === 'library' ? 1280 : 900, margin: '0 auto' }}>
-      <AppHeader onOpenSettings={() => setView('settings')} />
-      {showLogin && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="网易云音乐登录"
-          style={{ position: 'fixed', inset: 0, zIndex: 10, display: 'grid', placeItems: 'center', background: 'rgba(0, 0, 0, 0.35)', padding: 16 }}
-          onClick={() => setShowLogin(false)}
-        >
-          <div style={{ width: 'min(420px, 100%)', background: '#fff', borderRadius: 12, padding: 16 }} onClick={(event) => event.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button aria-label="关闭登录弹窗" onClick={() => setShowLogin(false)}>关闭</button>
-            </div>
-            <QRLogin onLogin={handleLogin} />
-          </div>
-        </div>
-      )}
+      {showLogin && <NcmLoginDialog onClose={() => setShowLogin(false)} onLogin={handleLogin} />}
       {view === 'settings' ? (
-        <ToolPageShell onBackHome={() => setView('home')}>
+        <ToolPageShell title="设置" onBackHome={() => setView('home')}>
           <SettingsPage />
         </ToolPageShell>
       ) : view === 'home' ? (
-        <HomePage onOpenTool={(id) => setView(id as any)} onQuickAction={handleQuickAction} />
+        <HomePage onOpenSettings={() => setView('settings')} onOpenTool={setView} onQuickAction={handleQuickAction} />
       ) : view === 'ncm' ? (
-        <ToolPageShell onBackHome={() => setView('home')}>
-          <nav style={{ display: 'flex', gap: 12, borderBottom: '1px solid #ddd', padding: '8px 16px' }}>
-            <span style={{ background: '#eee', padding: '4px 8px', borderRadius: 6 }}>🎵 网易云歌单</span>
-            <span style={{ opacity: 0.5 }}>🧰 更多工具 …</span>
-          </nav>
-          <NcmToolHeader onShowLogin={() => setShowLogin(true)} />
-          <PlaylistDownloader />
+        <ToolPageShell title="网易云歌单" onBackHome={() => setView('home')}>
+          <NcmTool onShowLogin={() => setShowLogin(true)} />
         </ToolPageShell>
       ) : view === 'library' ? (
-        <ToolPageShell onBackHome={() => setView('home')}>
-          <nav style={{ display: 'flex', gap: 12, borderBottom: '1px solid #ddd', padding: '8px 16px' }}>
-            <span style={{ background: '#eee', padding: '4px 8px', borderRadius: 6 }}>📚 图书馆</span>
-          </nav>
+        <ToolPageShell title="图书馆" onBackHome={() => setView('home')}>
           <LibraryTool />
         </ToolPageShell>
       ) : (
-        <ToolPageShell onBackHome={() => setView('home')}>
-          <nav style={{ display: 'flex', gap: 12, borderBottom: '1px solid #ddd', padding: '8px 16px' }}>
-            <span style={{ background: '#eee', padding: '4px 8px', borderRadius: 6 }}>🧩 Skill 管理</span>
-          </nav>
+        <ToolPageShell title="Skill 管理" onBackHome={() => setView('home')}>
           <SkillManagerTool />
         </ToolPageShell>
       )}

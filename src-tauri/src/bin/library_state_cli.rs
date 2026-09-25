@@ -1,8 +1,3 @@
-#[path = "../commands/storage.rs"]
-mod storage;
-#[path = "../commands/library.rs"]
-mod library;
-
 fn main() {
     let mut args = std::env::args().skip(1);
     let Some(path) = args.next() else {
@@ -26,7 +21,7 @@ fn main() {
         }
     };
 
-    match library::library_set_read_status(path.clone(), read) {
+    match toolbox::library::set_read_status(path.clone(), read) {
         Ok(()) => println!("OK: {} 已标记为 {}", path, state),
         Err(error) => {
             eprintln!("ERROR: {error}");

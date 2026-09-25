@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { markDownloaded, markDownloadedMany } from './store';
-import { pool } from './utils';
-import { downloadNcmTrack } from './download';
+import { markDownloaded, markDownloadedMany } from './api';
+import { downloadNcmTrack } from './api';
+import { pool } from './downloadQueue';
 import type { DownloadTask } from './types';
 import { useNcmAuth } from './NcmAuthContext';
 
@@ -89,13 +89,16 @@ export function useDownloadActions(
       ),
     );
   };
+  const cancelQueue = () => { cancelRef.current = true; };
+  const retryFailed = () => setTasks((previous) => previous.map((task) => task.status === 'error' ? { ...task, status: 'pending', error: undefined } : task));
 
   return {
     logged,
     isDownloading,
     feedback,
     setFeedback,
-    cancelRef,
+    cancelQueue,
+    retryFailed,
     downloadAllUndownloaded,
     downloadTrack,
     markFromThisTrack,

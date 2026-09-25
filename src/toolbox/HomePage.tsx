@@ -5,13 +5,15 @@ import {
   loadToolCardSize,
   runQuickAction,
   saveToolCardSize,
-  shouldAdjustToolIcons,
+  shouldAdjustToolCards,
 } from './home';
 import { toolDefinitions, type ToolDefinition, type ToolId } from './tools';
+import UpdaterButton from './UpdaterButton';
 
 type QuickActionId = ToolDefinition['quickActions'][number]['id'];
 
 interface HomePageProps {
+  onOpenSettings: () => void;
   onOpenTool: (toolId: ToolId) => void;
   onQuickAction: (toolId: ToolId, actionId: QuickActionId) => void;
 }
@@ -22,7 +24,7 @@ interface ContextMenuState {
   y: number;
 }
 
-export default function HomePage({ onOpenTool, onQuickAction }: HomePageProps) {
+export default function HomePage({ onOpenSettings, onOpenTool, onQuickAction }: HomePageProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [cardSize, setCardSize] = useState(loadToolCardSize);
   const cardSizeRef = useRef(cardSize);
@@ -41,7 +43,7 @@ export default function HomePage({ onOpenTool, onQuickAction }: HomePageProps) {
 
   useEffect(() => {
     const adjustCards = (event: WheelEvent) => {
-      if (!shouldAdjustToolIcons(event)) return;
+      if (!shouldAdjustToolCards(event)) return;
 
       const nextSize = adjustToolCardSize(cardSizeRef.current, event.deltaY);
       if (nextSize === cardSizeRef.current) return;
@@ -58,6 +60,7 @@ export default function HomePage({ onOpenTool, onQuickAction }: HomePageProps) {
 
   return (
     <main style={{ padding: '24px 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}><button onClick={onOpenSettings}>设置</button><UpdaterButton /></div>
       <h2>工具首页</h2>
       <p style={{ color: '#666' }}>按住 Ctrl 并滚动鼠标滚轮可调整工具卡片大小（当前 {cardSize}px）。</p>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize}px, 1fr))`, gap: 16, alignItems: 'start' }}>

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { LibraryBook } from './tree';
+import type { ImportResult, LibraryBook } from './types';
 
 export const scanLibrary = () => invoke<LibraryBook[]>('library_scan');
 export const loadCachedLibrary = () => invoke<LibraryBook[]>('library_cached');
@@ -9,4 +9,4 @@ export const setReadStatus = (path: string, read: boolean) => invoke<void>('libr
 export const openBook = (path: string) => invoke<void>('library_open_book', { path });
 export const renameBook = (path: string, title: string) => invoke<void>('library_rename_book', { path, title });
 export const deleteBook = (path: string) => invoke<void>('library_delete_book', { path });
-export const importBooks = (paths: string[], read: boolean) => invoke<Array<{ source: string; status: string; message: string }>>('library_import', { paths, read });
+export const importBooks = (paths: string[], read: boolean) => invoke<ImportResult[]>('library_import', { paths, read });

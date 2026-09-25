@@ -1,16 +1,15 @@
 import assert from 'node:assert/strict';
-import { downloadNcmTracks, toDownloadCommandArgs } from './download.ts';
+import { downloadNcmTracks, toDownloadCommandArgs } from './downloadQueue.ts';
 import {
   confirmNcmQuickDownload,
   createLatestRequestGate,
-  extractSupportedNcmPlaylistId,
-  fetchSongDetailsBatched,
   loadNcmDownloadPreview,
   pendingTracks,
   previewSummary,
   previewTrackLabels,
   quickDownloadResultMessage,
 } from './quickDownload.ts';
+import { extractSupportedNcmPlaylistId, fetchSongDetailsBatched } from './playlist.ts';
 
 const tracks = [
   { id: 1, name: '已下载', artists: ['甲'], album: '', duration: 0, v: 0 },

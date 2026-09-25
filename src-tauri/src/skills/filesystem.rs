@@ -1,0 +1,6 @@
+use std::{fs, path::{Path, PathBuf}};
+
+pub fn skills_root() -> Result<PathBuf, String> { std::env::var_os("USERPROFILE").map(PathBuf::from).map(|home| home.join(".agents")).ok_or_else(|| "无法确定当前用户的主目录（缺少 USERPROFILE）".into()) }
+pub fn normalized(path: &Path) -> Result<PathBuf, String> { fs::canonicalize(path).map_err(|e| format!("无法解析路径 {}：{e}", path.display())) }
+pub fn discover_skills(root: &Path) -> Result<Vec<PathBuf>, String> { let mut found = vec![]; let mut pending = vec![root.to_owned()]; while let Some(dir) = pending.pop() { for entry in fs::read_dir(&dir).map_err(|e| format!("无法读取 {}：{e}", dir.display()))? { let path = entry.map_err(|e| e.to_string())?.path(); if !path.is_dir() { continue; } let actual = match normalized(&path) { Ok(value) => value, Err(_) => continue }; if !actual.starts_with(root) { continue; } if actual.join("SKILL.md").is_file() { found.push(actual); } else { pending.push(actual); } } } found.sort(); found.dedup(); Ok(found) }
+pub fn validate_skill_path(path: &str) -> Result<PathBuf, String> { let root = normalized(&skills_root()?).map_err(|_| "找不到 ~/.agents 目录，请确认目录存在".to_string())?; let skill = normalized(Path::new(path))?; if skill == root || !skill.starts_with(&root) || !skill.is_dir() || !skill.join("SKILL.md").is_file() { return Err("目标不是 ~/.agents 下可删除的 skill 目录，请刷新后重试".into()); } Ok(skill) }

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export default function ToolPageShell({ children, onBackHome }: { children: ReactNode; onBackHome: () => void }) {
+export default function ToolPageShell({ children, onBackHome, title }: { children: ReactNode; onBackHome: () => void; title: string }) {
   return (
     <div style={{ paddingTop: 12 }}>
       <button
@@ -33,6 +33,9 @@ export default function ToolPageShell({ children, onBackHome }: { children: Reac
         <span aria-hidden="true" style={{ fontSize: 19, lineHeight: 1 }}>←</span>
         <span>回到首页</span>
       </button>
+      <header style={{ minHeight: 62, display: 'grid', placeItems: 'center', padding: '8px 80px', borderBottom: '1px solid #e5e7eb' }}>
+        <h1 style={{ margin: 0, fontSize: 22, lineHeight: 1.35, textAlign: 'center' }}>{title}</h1>
+      </header>
       {children}
     </div>
   );

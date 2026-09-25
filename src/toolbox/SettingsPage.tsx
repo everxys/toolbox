@@ -1,89 +1,10 @@
-import { useEffect, useState } from 'react';
-import { open } from '@tauri-apps/plugin-dialog';
-import { invoke } from '@tauri-apps/api/core';
-
-interface DatabaseLocation {
-  directory: string;
-  databasePath: string;
-  isDefault: boolean;
-}
-
-interface DatabaseSwitchResult {
-  location: DatabaseLocation;
-  backupPath: string | null;
-}
-
-const databasePathIn = (directory: string) => `${directory.replace(/[\\/]+$/, '')}\\toolbox.db`;
+import { databasePathIn, useDatabaseSettings } from './settings/useDatabaseSettings';
 
 export default function SettingsPage() {
-  const [location, setLocation] = useState<DatabaseLocation | null>(null);
-  const [selectedDirectory, setSelectedDirectory] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [migrating, setMigrating] = useState(false);
-  const [message, setMessage] = useState('');
-
-  const refresh = async () => {
-    setLoading(true);
-    try {
-      setLocation(await invoke<DatabaseLocation>('database_location'));
-    } catch (error) {
-      setMessage(String(error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { void refresh(); }, []);
-
-  const chooseDirectory = async () => {
-    setMessage('');
-    const selected = await open({ directory: true, multiple: false, title: '选择 Toolbox 数据库保存文件夹' });
-    if (typeof selected === 'string') setSelectedDirectory(selected);
-  };
-
-  const useExisting = async () => {
-    setMessage('');
-    const selected = await open({ directory: false, multiple: false, title: '选择已有的 toolbox.db', filters: [{ name: 'Toolbox 数据库', extensions: ['db'] }] });
-    if (typeof selected !== 'string') return;
-    if (!selected.toLowerCase().endsWith('toolbox.db')) {
-      setMessage('请选择名为 toolbox.db 的数据库文件。');
-      return;
-    }
-    if (!confirm(`使用已有数据库：\n${selected}\n\n当前数据库会先备份，然后 Toolbox 将切换到这个文件。继续吗？`)) return;
-    setMigrating(true);
-    try {
-      const result = await invoke<DatabaseSwitchResult>('database_use_existing', { path: selected });
-      setLocation(result.location);
-      setSelectedDirectory(null);
-      setMessage(result.backupPath ? `已切换到已有数据库。当前数据库已备份到：\n${result.backupPath}` : '已切换到已有数据库。');
-    } catch (error) {
-      setMessage(String(error));
-    } finally {
-      setMigrating(false);
-    }
-  };
-
-  const migrate = async () => {
-    if (!selectedDirectory || migrating) return;
-    const target = databasePathIn(selectedDirectory);
-    if (!confirm(`将 Toolbox 数据库迁移到：\n${target}\n\n原数据库会保留，不会被删除。继续吗？`)) return;
-    setMigrating(true);
-    setMessage('');
-    try {
-      const next = await invoke<DatabaseLocation>('database_migrate', { directory: selectedDirectory });
-      setLocation(next);
-      setSelectedDirectory(null);
-      setMessage('数据库已迁移。');
-    } catch (error) {
-      setMessage(String(error));
-    } finally {
-      setMigrating(false);
-    }
-  };
+  const { location, selectedDirectory, loading, migrating, message, chooseDirectory, useExisting, migrate } = useDatabaseSettings();
 
   return (
     <main style={{ padding: '24px 0', maxWidth: 760 }}>
-      <h2 style={{ marginBottom: 6 }}>设置</h2>
       <p style={{ color: '#5d6673', marginTop: 0 }}>管理 Toolbox 的本地数据保存位置。</p>
 
       <section style={panel} aria-labelledby="database-heading">

@@ -1,0 +1,3 @@
+import type { Track } from './types';
+export const toCsv = (tracks: Track[]) => [ ['id(hash)', 'name', 'artists', 'album', 'duration_ms', 'v'].join(','), ...tracks.map((track) => { const escape = (value: string) => `"${value.replace(/"/g, '""')}"`; return [track.id, escape(track.name), escape(track.artists.join('/')), escape(track.album), track.duration, track.v].join(','); }) ].join('\n');
+export const downloadCsv = (filename: string, csv: string) => { const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url); };

@@ -49,3 +49,14 @@ export async function fetchPlayerUrl(id: number, level = 'standard'): Promise<st
   const r = await invoke<{ url: string | null }>('ncm_player_url', { id, level });
   return r.url;
 }
+
+export async function downloadNcmTrack(track: import('./types').Track, level: string): Promise<{ filePath: string }> {
+  return invoke('ncm_download', { id: track.id, name: track.name, artists: track.artists, level });
+}
+
+export async function loadDownloadedIds(): Promise<Set<number>> {
+  return new Set(await invoke<number[]>('ncm_list_downloaded'));
+}
+
+export function markDownloaded(id: number) { return invoke('ncm_mark_downloaded', { id }); }
+export function markDownloadedMany(ids: Iterable<number>) { return invoke('ncm_mark_downloaded_many', { ids: [...ids] }); }

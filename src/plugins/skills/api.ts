@@ -1,8 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-
-export interface Skill { path: string; name: string; nativeDescription: string; customDescription: string; parseError: string | null; categoryIds: number[] }
-export interface SkillCategory { id: number; name: string; skillPaths: string[] }
-export interface SkillCategorySave { id?: number; name: string; skillPaths: string[] }
+import type { Skill, SkillCategory, SkillCategorySave } from './types';
+export type { Skill, SkillCategory, SkillCategorySave } from './types';
 
 export const scanSkills = () => invoke<Skill[]>('skills_scan');
 export const updateSkillMetadata = (update: Pick<Skill, 'path' | 'customDescription'>) => invoke<void>('skills_update_metadata', { update });

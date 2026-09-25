@@ -1,6 +1,6 @@
-import { fetchPlaylistDetail, fetchSongDetails } from './api.ts';
-import { downloadNcmTracks, type NcmTracksDownloadResult } from './download.ts';
-import { loadDownloadedIds, markDownloaded } from './store.ts';
+import { fetchPlaylistDetail, fetchSongDetails, loadDownloadedIds, markDownloaded } from './api.ts';
+import { downloadNcmTracks, type NcmTracksDownloadResult } from './downloadQueue.ts';
+import { extractSupportedNcmPlaylistId, fetchSongDetailsBatched } from './playlist.ts';
 import type { Track } from './types.ts';
 
 export const pendingTracks = (tracks: Track[], downloaded: Set<number>) =>
@@ -17,40 +17,12 @@ export function createLatestRequestGate() {
   };
 }
 
-export function extractSupportedNcmPlaylistId(shareUrl: string): number | null {
-  try {
-    const url = new URL(shareUrl.trim());
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-    if (url.hostname.toLowerCase() !== 'music.163.com') return null;
-
-    const pathname = url.pathname.replace(/\/+$/, '');
-    if (pathname !== '/playlist' && pathname !== '/m/playlist') return null;
-
-    const rawId = url.searchParams.get('id');
-    if (!rawId || !/^\d+$/.test(rawId)) return null;
-    const id = Number(rawId);
-    return Number.isSafeInteger(id) && id > 0 ? id : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function fetchSongDetailsBatched(
-  ids: number[],
-  fetcher: (chunk: number[]) => Promise<Track[]> = fetchSongDetails,
-) {
-  const tracks: Track[] = [];
-  for (let i = 0; i < ids.length; i += 200) {
-    tracks.push(...await fetcher(ids.slice(i, i + 200)));
-  }
-  return tracks;
-}
 
 export async function loadNcmDownloadPreview(url: string) {
   const id = extractSupportedNcmPlaylistId(url);
   if (!id) throw new Error('仅支持网易云音乐歌单分享链接');
   const { info, trackIds } = await fetchPlaylistDetail(id);
-  const tracks = await fetchSongDetailsBatched(trackIds.map((track) => track.id));
+  const tracks = await fetchSongDetailsBatched(trackIds.map((track) => track.id), fetchSongDetails);
   return { info, pending: pendingTracks(tracks, await loadDownloadedIds()) };
 }
 

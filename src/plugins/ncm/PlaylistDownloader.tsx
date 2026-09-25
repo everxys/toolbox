@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { openDownloadDir } from './api';
-import { toCsv, downloadCsv } from './utils';
-import DownloadQueue from './DownloadQueue';
+import { toCsv, downloadCsv } from './csv';
+import DownloadQueue from './DownloadQueueView';
 import { useTaskFiltering } from './useTaskFiltering';
 import { usePlaylistLoader } from './usePlaylistLoader';
 import { useDownloadActions } from './useDownloadActions';
@@ -24,7 +24,8 @@ export default function PlaylistDownloader() {
     logged: loggedIn,
     isDownloading,
     feedback: actionFeedback,
-    cancelRef,
+    cancelQueue,
+    retryFailed,
     downloadAllUndownloaded,
     downloadTrack,
     markFromThisTrack,
@@ -90,8 +91,8 @@ export default function PlaylistDownloader() {
         <button onClick={() => openDownloadDir().catch((error) => setDirError(`无法打开下载目录：${String(error)}`))}>打开下载目录</button>
         <button onClick={() => exportCsv(false)} disabled={tracks.length === 0}>导出全部 CSV ({counts.all})</button>
         <button onClick={() => exportCsv(true)} disabled={filteredTasks.length === 0}>导出当前筛选 CSV ({filteredTasks.length})</button>
-        {isDownloading && <button onClick={() => cancelRef.current = true}>取消队列</button>}
-        {counts.error > 0 && <button onClick={() => setTasks((prev) => prev.map((p) => p.status === 'error' ? { ...p, status: 'pending', error: undefined } : p))}>重试失败 ({counts.error})</button>}
+        {isDownloading && <button onClick={cancelQueue}>取消队列</button>}
+        {counts.error > 0 && <button onClick={retryFailed}>重试失败 ({counts.error})</button>}
       </div>
 
       <DownloadQueue tasks={tasks} concurrency={concurrency} />

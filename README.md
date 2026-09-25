@@ -1,50 +1,58 @@
-# Toolbox 跨平台工具箱
+# Toolbox
 
-基于 **Tauri v2 + React + TypeScript**，模仿 `YUCLing/open-orpheus` 的跨平台思路（Electron 换 Tauri 以减小体积）。
+Toolbox 是一个基于 **Tauri v2、React 与 TypeScript** 的 Windows 桌面工具箱。当前包含网易云歌单下载、图书馆和 Skill 管理三个功能；前端通过 Tauri 命令调用 Rust 后端，不提供浏览器 fetch fallback。
 
-## 已实现插件：网易云歌单批量下载
+## 功能与本地数据
 
-- **扫码登录**：`src/plugins/ncm/QRLogin.tsx` + `src-tauri/src/commands/ncm.rs::ncm_qr_create / ncm_qr_check`
-  - 借鉴 `open-orpheus/src/main/cookie.ts` 的 `deviceId/appver/os` 注入，调用 `https://music.163.com/api/login/qrcode/unikey?type=1` 生成 `unikey`，`qrcode` 库渲染 `https://music.163.com/login?codekey=unikey`，每2s轮询 `…/check` 800/801/802/803。
-- **分享链接解析**：`extractPlaylistId()` 正则 `id=(\d+)`，忽略 `uct2`。
-- **全量拉取**：`GET /api/v6/playlist/detail?id=784204124` 拿 `trackIds[5508]`（已验证去重 0 重复），按 200 批 `GET /api/song/detail?ids=[...]` 补详情，hash = `id`。
-- **已下载记录**：前端 `localStorage` + 生产 `tauri-plugin-sql sqlite:toolbox.db`，`CREATE TABLE downloaded(id PRIMARY KEY, path TEXT)`。
-- **一键下载未下载**：`undone = trackIds - downloadedSet`，**并发 3 + 重试 3 + 可取消** (`utils.ts:pool` + `DownloadQueue.tsx`)，每任务带 `pending/downloading/done/error`，进度条，失败重试；Rust `ncm_download` 带 `MUSIC_U` 调 ` /api/song/enhance/player/url/v1?level=standard` 取真实 `url` 并落盘到 `app_data_dir()`。
-- **导出 CSV**：`utils.ts:toCsv` 以 `id` 为 hash，`PlaylistDownloader.tsx:exportCsv` 一键导出 `id,name,artists,album,duration,v`，支持导出全部/当前筛选，已生成示例 `/tmp/playlist_784204124.csv` (200行演示，全量5508同格式)。
-- **全量列表展示**：`PlaylistDownloader.tsx` 分页 100/页 (5508→56页)，顶部 4 个筛选 `全部/未下载/已下载/失败` + 搜索 `歌名/歌手/id`，表格列 `hash(id)/歌名/歌手/专辑/状态/操作`，状态彩色徽章，已下载持久化于 `localStorage`/`SQLite`，翻页、搜索、筛选均即时生效。
+- **网易云歌单**：二维码登录、完整歌单下载、单曲下载、首页“下载未下载歌曲”快捷入口、CSV 导出和下载记录。
+- **图书馆**：扫描 `USERPROFILE/important/books/Library`，以同级 `read` / `unread` 中的 Windows 快捷方式作为阅读状态来源，支持元数据、导入、改名、打开和删除。
+- **Skill 管理**：扫描 `USERPROFILE/.agents` 下含 `SKILL.md` 的目录；自定义描述和分类只存入 Toolbox 数据库，不修改源文件。
+- **数据库设置**：默认数据库及设置位于应用数据目录；数据库文件固定名为 `toolbox.db`，可迁移或选择已有数据库。迁移保留源文件，选择已有数据库时先备份当前数据库。
 
-## 目录
+NCM 登录 Cookie 存在应用数据目录的 `ncm_login_cookie.txt`；音乐下载写入系统下载目录。不要手动编辑这些文件，尤其不要将 Cookie 提交到版本库。
 
+## 目录概览
+
+```text
+src/
+  plugins/
+    ncm/       # 登录、歌单、队列、快捷下载及其 API
+    library/   # 图书页面、导入、树和数据 hook
+    skills/    # Skill 页面、分类、表格和数据 hook
+  shared/ui/   # 可复用展示组件
+  toolbox/     # 首页、设置、工具壳与更新入口
+src-tauri/src/
+  commands/    # 稳定的 30 个 Tauri 命令协议入口
+  library/ ncm/ skills/ storage.rs
+  desktop.rs   # 窗口、托盘和桌面装配
+docs/refactoring/
+  2026-09-25-validation.md # 分阶段验证与人工验收记录
 ```
-toolbox/
-  src/plugins/ncm/
-    api.ts                # 前端直调 / Tauri invoke 双兼容
-    QRLogin.tsx
-    PlaylistDownloader.tsx # 并发下载 + CSV 导出
-    DownloadQueue.tsx     # 进度条/并发显示/重试
-    utils.ts              # pool(并发池)/toCsv
-    store.ts
-    types.ts
-  src-tauri/src/commands/ncm.rs
-  scripts/ncm_demo.py     # 无需登录的可运行验证脚本
-  scripts/export_csv.py   # 生成 CSV 示例
-```
 
-## 快速开始
+## 开发与验证
+
+本仓库当前在 Node **26.7.0**、Rust stable 上验证。安装依赖后运行：
 
 ```bash
-# 1. 验证链路（无需 Tauri，已验证 784204124 可拉 5508）
-python3 scripts/ncm_demo.py "https://music.163.com/playlist?id=784204124"
-
-# 2. 前端开发（需 Node 18+）
-npm install
-npm run tauri:dev   # 或 npm run dev 仅前端
-
-# 3. 打包
-npm run tauri:build
+npm ci
+npm test
+npm run build
+cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked
+cargo check --manifest-path src-tauri/Cargo.toml --all-targets --locked
 ```
 
-## 注意事项
+启动桌面应用：
 
-- 下载需用户已登录且拥有版权，`player/url` 无 `url` 时提示 VIP/无版权。
-- 遵守网易云服务条款，仅用于已购/可试听内容的本地备份。
+```bash
+npm run tauri:dev
+```
+
+也提供 `library_state_cli` Rust binary，供隔离地检查图书阅读状态相关逻辑；它不替代对真实 Windows 快捷方式的人工验收。
+
+## CI 与发布
+
+`.github/workflows/verify.yml` 在 Windows 上运行 `npm ci`、前端测试/构建以及 Rust 全 target test/check。现有 `build.yml` 继续专门负责已签名的发布构建与 release，不因验证流程改变其触发条件、签名或发布步骤。
+
+## 兼容约定
+
+重构不改变 Tauri 命令名、参数名、camelCase JSON 形状、数据库名/表和用户文件位置。完整歌单批量下载、单曲下载和首页快捷下载有不同的取消、重试与记录策略，不能在重构中视作同一种流程。

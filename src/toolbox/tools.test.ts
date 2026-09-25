@@ -1,20 +1,15 @@
 import assert from 'node:assert/strict';
 import {
-  adjustToolIconSize,
   adjustToolCardSize,
-  DEFAULT_TOOL_ICON_SIZE,
   DEFAULT_TOOL_CARD_SIZE,
   isPrimaryToolClick,
-  loadToolIconSize,
-  MAX_TOOL_ICON_SIZE,
   MAX_TOOL_CARD_SIZE,
-  MIN_TOOL_ICON_SIZE,
   MIN_TOOL_CARD_SIZE,
   runQuickAction,
-  saveToolIconSize,
-  shouldAdjustToolIcons,
+  shouldAdjustToolCards,
 } from './home.ts';
-import { getToolById, loadLastNcmPlaylistUrl, saveLastNcmPlaylistUrl } from './tools.ts';
+import { getToolById } from './tools.ts';
+import { loadLastNcmPlaylistUrl, saveLastNcmPlaylistUrl } from '../plugins/ncm/preferences.ts';
 
 const values = new Map<string, string>();
 globalThis.localStorage = {
@@ -34,28 +29,12 @@ assert.equal(loadLastNcmPlaylistUrl(), 'https://music.163.com/playlist?id=1');
 assert.equal(isPrimaryToolClick(0), true);
 assert.equal(isPrimaryToolClick(2), false);
 
-assert.equal(adjustToolIconSize(DEFAULT_TOOL_ICON_SIZE, -1), DEFAULT_TOOL_ICON_SIZE + 4);
-assert.equal(adjustToolIconSize(DEFAULT_TOOL_ICON_SIZE, 1), DEFAULT_TOOL_ICON_SIZE - 4);
-assert.equal(adjustToolIconSize(MAX_TOOL_ICON_SIZE, -1), MAX_TOOL_ICON_SIZE);
-assert.equal(adjustToolIconSize(MIN_TOOL_ICON_SIZE, 1), MIN_TOOL_ICON_SIZE);
 assert.equal(adjustToolCardSize(DEFAULT_TOOL_CARD_SIZE, -1), DEFAULT_TOOL_CARD_SIZE + 16);
 assert.equal(adjustToolCardSize(DEFAULT_TOOL_CARD_SIZE, 1), DEFAULT_TOOL_CARD_SIZE - 16);
 assert.equal(adjustToolCardSize(MAX_TOOL_CARD_SIZE, -1), MAX_TOOL_CARD_SIZE);
 assert.equal(adjustToolCardSize(MIN_TOOL_CARD_SIZE, 1), MIN_TOOL_CARD_SIZE);
-assert.equal(shouldAdjustToolIcons({ ctrlKey: true, deltaY: -1 }), true);
-assert.equal(shouldAdjustToolIcons({ ctrlKey: false, deltaY: -1 }), false);
-saveToolIconSize(48);
-assert.equal(loadToolIconSize(), 48);
-values.clear();
-assert.equal(loadToolIconSize(), DEFAULT_TOOL_ICON_SIZE);
-values.set('toolbox_tool_icon_size', 'not-a-size');
-assert.equal(loadToolIconSize(), DEFAULT_TOOL_ICON_SIZE);
-values.set('toolbox_tool_icon_size', String(MAX_TOOL_ICON_SIZE + 1));
-assert.equal(loadToolIconSize(), DEFAULT_TOOL_ICON_SIZE);
-saveToolIconSize(MAX_TOOL_ICON_SIZE + 10);
-assert.equal(values.get('toolbox_tool_icon_size'), String(MAX_TOOL_ICON_SIZE));
-saveToolIconSize(MIN_TOOL_ICON_SIZE - 10);
-assert.equal(values.get('toolbox_tool_icon_size'), String(MIN_TOOL_ICON_SIZE));
+assert.equal(shouldAdjustToolCards({ ctrlKey: true, deltaY: -1 }), true);
+assert.equal(shouldAdjustToolCards({ ctrlKey: false, deltaY: -1 }), false);
 
 const events: string[] = [];
 assert.throws(() => runQuickAction(

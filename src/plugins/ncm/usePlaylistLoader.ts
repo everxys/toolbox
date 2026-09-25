@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { extractPlaylistId, fetchPlaylistDetail, fetchSongDetails } from './api';
-import { loadDownloadedIds } from './store';
+import { fetchPlaylistDetail, fetchSongDetails, loadDownloadedIds } from './api';
+import { extractPlaylistId, fetchSongDetailsBatched } from './playlist';
 import type { DownloadTask, PlaylistInfo, Track } from './types';
 
 export function usePlaylistLoader() {
@@ -24,16 +24,8 @@ export function usePlaylistLoader() {
       setInfo(nextInfo);
       const ids = trackIds.map((t) => t.id);
       const vById = new Map(trackIds.map((t) => [t.id, t.v] as const));
-      const all: Track[] = [];
-      for (let i = 0; i < ids.length; i += 200) {
-        const chunk = ids.slice(i, i + 200);
-        const songs = await fetchSongDetails(chunk);
-        for (const s of songs) {
-          const v = vById.get(s.id);
-          if (v !== undefined) s.v = v;
-        }
-        all.push(...songs);
-      }
+      const all = await fetchSongDetailsBatched(ids, fetchSongDetails);
+      for (const song of all) { const v = vById.get(song.id); if (v !== undefined) song.v = v; }
       setTracks(all);
       const downloaded = await loadDownloadedIds();
       const nextTasks = all.map((track) => ({

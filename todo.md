@@ -1,5 +1,7 @@
 # Toolbox 优化 TODO
 
+> 2026-09-25 说明：下方条目是 2026-09-01 的历史审计快照，文件行号、NCM 模块名和测试数量可能已因结构重构失效。当前结构与验证结果以 `docs/refactoring/2026-09-25-validation.md` 为准；未勾选的独立行为问题不在本次重构中修复。
+
 > 生成时间: 2026-09-01 — 基于 `src/App.tsx`, `src/plugins/ncm/*`, `src/toolbox/*`, `src-tauri/src/commands/ncm.rs`, `package.json`, `vite.config.ts`, `tauri.conf.json` 全量审计
 
 ## P0 性能 / 稳定性（优先）
