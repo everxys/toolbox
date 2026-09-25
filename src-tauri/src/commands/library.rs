@@ -57,12 +57,34 @@ fn db(app: &AppHandle) -> Result<Connection, String> {
     conn.execute("CREATE TABLE IF NOT EXISTS library_link_cache (link_path TEXT PRIMARY KEY, modified_at INTEGER NOT NULL, target_path TEXT NOT NULL)", []).map_err(|e| e.to_string())?;
     Ok(conn)
 }
-fn wide(path: &Path) -> Vec<u16> { path.as_os_str().to_string_lossy().encode_utf16().chain(Some(0)).collect() }
+fn shell_compatible_path(path: &Path) -> String {
+    let value = path.as_os_str().to_string_lossy();
+    if let Some(rest) = value.strip_prefix(r"\\?\UNC\") { format!(r"\\{rest}") }
+    else { value.strip_prefix(r"\\?\").unwrap_or(&value).to_string() }
+}
+fn wide(path: &Path) -> Vec<u16> { shell_compatible_path(path).encode_utf16().chain(Some(0)).collect() }
 fn shortcut_target(link: &Path) -> Result<PathBuf, String> {
     unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok().map_err(|e| e.to_string())?; let result = (|| { let shell: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).map_err(|e| e.to_string())?; let persist: IPersistFile = shell.cast().map_err(|e| e.to_string())?; let link = wide(link); persist.Load(PCWSTR(link.as_ptr()), STGM_READ).map_err(|e| e.to_string())?; let mut buffer = [0u16; 32768]; shell.GetPath(&mut buffer, std::ptr::null_mut::<WIN32_FIND_DATAW>(), SLGP_RAWPATH.0 as u32).map_err(|e| e.to_string())?; let end = buffer.iter().position(|value| *value == 0).unwrap_or(0); if end == 0 { Err("快捷方式没有目标文件".into()) } else { Ok(PathBuf::from(String::from_utf16_lossy(&buffer[..end]))) } })(); CoUninitialize(); result }
 }
 fn create_shortcut(link: &Path, target: &Path) -> Result<(), String> {
-    fs::create_dir_all(link.parent().ok_or("快捷方式缺少父目录")?).map_err(|e| e.to_string())?; unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok().map_err(|e| e.to_string())?; let result = (|| { let shell: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).map_err(|e| e.to_string())?; let target = wide(target); shell.SetPath(PCWSTR(target.as_ptr())).map_err(|e| e.to_string())?; let persist: IPersistFile = shell.cast().map_err(|e| e.to_string())?; let link = wide(link); persist.Save(PCWSTR(link.as_ptr()), true).map_err(|e| e.to_string()) })(); CoUninitialize(); result }
+    fs::create_dir_all(link.parent().ok_or("快捷方式缺少父目录")?).map_err(|e| e.to_string())?;
+    let link = link.to_owned();
+    let target = target.to_owned();
+    // Tauri command threads may already belong to a different COM apartment.
+    // ShellLink requires STA, so isolate shortcut creation in its own STA thread.
+    std::thread::spawn(move || unsafe {
+        CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok().map_err(|e| format!("初始化 Windows 快捷方式组件失败：{e}"))?;
+        let result = (|| {
+            let shell: IShellLinkW = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).map_err(|e| format!("创建 Windows 快捷方式组件失败：{e}"))?;
+            let target = wide(&target);
+            shell.SetPath(PCWSTR(target.as_ptr())).map_err(|e| format!("设置快捷方式目标失败：{e}"))?;
+            let persist: IPersistFile = shell.cast().map_err(|e| format!("获取快捷方式保存接口失败：{e}"))?;
+            let link = wide(&link);
+            persist.Save(PCWSTR(link.as_ptr()), true).map_err(|e| format!("保存快捷方式失败：{e}"))
+        })();
+        CoUninitialize();
+        result
+    }).join().map_err(|_| "创建阅读状态快捷方式时发生意外错误".to_string())?
 }
 fn link_path(root: &Path, library: &Path, book: &Path) -> Result<PathBuf, String> {
     let relative = book.strip_prefix(library).map_err(|_| "图书路径不在 Library 中")?;
@@ -236,4 +258,8 @@ pub fn library_import(paths: Vec<String>, read: bool) -> Result<Vec<ImportResult
         assert!(renamed_book_path(Path::new("C:/Library/旧书.epub"), "错误/名称").is_err());
     }
     #[test] fn link_path_mirrors_library_tree() { assert_eq!(link_path(Path::new("C:/read"), Path::new("C:/Library"), Path::new("C:/Library/灌篮高手/1.pdf")).unwrap(), PathBuf::from("C:/read/灌篮高手/1.lnk")); }
+    #[test] fn shell_paths_do_not_use_windows_verbatim_prefixes() {
+        assert_eq!(shell_compatible_path(Path::new(r"\\?\C:\Library\book.epub")), r"C:\Library\book.epub");
+        assert_eq!(shell_compatible_path(Path::new(r"\\?\UNC\server\share\book.epub")), r"\\server\share\book.epub");
+    }
 }

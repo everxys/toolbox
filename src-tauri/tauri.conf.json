@@ -1,6 +1,6 @@
 {
   "productName": "Toolbox",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "identifier": "com.toolbox.app",
   "build": {
     "beforeDevCommand": "npm run dev",
